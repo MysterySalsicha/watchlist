@@ -1,0 +1,3325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+  <!-- PWA meta tags -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#08090f">
+  <meta name="apple-mobile-web-app-title" content="Watchlist">
+
+  <title>Watchlist</title>
+
+  <!-- Manifest PWA -->
+  <link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Watchlist%22%2C%22short_name%22%3A%22Watchlist%22%2C%22description%22%3A%22Sua%20lista%20pessoal%20de%20animes%2C%20s%C3%A9ries%20e%20filmes%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%2308090f%22%2C%22theme_color%22%3A%22%2308090f%22%2C%22orientation%22%3A%22portrait-primary%22%7D">
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Remix Icon -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet">
+
+  <!-- idb library (IndexedDB wrapper) -->
+  <script src="https://cdn.jsdelivr.net/npm/idb@8/build/umd.js"></script>
+
+  <style>
+    /* ─── RESET ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    button { font-family: inherit; cursor: pointer; }
+    input, textarea, select { font-family: inherit; }
+    a { text-decoration: none; }
+    :root { --font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }
+
+    /* ─── REMIX ICON SIZING ─────────────────────────────────── */
+    i[class^="ri-"], i[class*=" ri-"] { line-height: 1; vertical-align: middle; font-style: normal; }
+
+    /* ─── DESIGN SYSTEM ──────────────────────────────────────── */
+    :root {
+      --bg:  #08090f; --c1: #0d0e1a; --c2: #141526; --c3: #1c1d30;
+      --b1: rgba(255,255,255,.06); --b2: rgba(255,255,255,.12); --b3: rgba(255,255,255,.22);
+      --t1: #eaebf7; --t2: #9496bf; --t3: #555680;
+      --green: #36ffa0; --gbg: rgba(54,255,160,.08); --gbrd: rgba(54,255,160,.30);
+      --orange: #ff8c5a; --obg: rgba(255,140,90,.08); --obrd: rgba(255,140,90,.30);
+      --blue: #5ab4ff; --purple: #a47eff; --amber: #ffc84a; --pink: #ff6fa8; --red: #ff4d4d;
+      --radius-card: 16px; --radius-modal: 22px; --radius-input: 11px;
+      --radius-btn: 10px; --radius-tag: 20px;
+    }
+
+    /* ─── BASE ───────────────────────────────────────────────── */
+    html, body { height: 100%; overflow-x: hidden; }
+    body {
+      background: var(--bg); color: var(--t1);
+      font-family: var(--font); font-weight: 400; line-height: 1.5;
+      -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased;
+      scrollbar-width: none;
+    }
+    body::-webkit-scrollbar { display: none; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 65% 40% at 90% -5%, rgba(54,255,160,.04), transparent 70%),
+        radial-gradient(ellipse 55% 35% at 5% 100%, rgba(90,180,255,.03), transparent 70%);
+    }
+
+    /* ─── APP ────────────────────────────────────────────────── */
+    #app { position: relative; z-index: 1; min-height: 100vh; }
+
+    /* ─── GLASSMORPHISM ──────────────────────────────────────── */
+    .glass {
+      background: rgba(8,9,15,.88);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* ─── HEADER ─────────────────────────────────────────────── */
+    .hdr {
+      position: sticky; top: 0; z-index: 60; height: 57px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; border-bottom: 1px solid var(--b1);
+    }
+    .hdr-logo {
+      font-family: var(--font); font-weight: 800; font-size: 19px;
+      letter-spacing: -0.02em; user-select: none;
+    }
+    .hdr-logo .w { color: var(--t1); }
+    .hdr-logo .g { color: var(--green); }
+    .hdr-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-settings {
+      width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+      background: var(--c1); border: 1px solid var(--b1); border-radius: var(--radius-btn);
+      color: var(--t2); transition: border-color .15s, color .15s;
+    }
+    .btn-settings:hover { border-color: var(--b2); color: var(--t1); }
+    .btn-add {
+      display: flex; align-items: center; gap: 6px; padding: 0 14px; height: 38px;
+      background: var(--green); color: #000; font-family: var(--font);
+      font-weight: 700; font-size: 13px; border: none; border-radius: var(--radius-btn);
+      transition: opacity .15s; white-space: nowrap;
+    }
+    .btn-add:hover { opacity: .88; }
+
+    /* ─── TABS ───────────────────────────────────────────────── */
+    .tabs-wrap { position: sticky; top: 57px; z-index: 50; border-bottom: 1px solid var(--b1); }
+    .tabs {
+      display: flex; overflow-x: auto; scrollbar-width: none;
+      -webkit-overflow-scrolling: touch; padding: 0 12px;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      display: flex; align-items: center; gap: 6px; height: 50px; padding: 0 12px;
+      font-family: var(--font); font-weight: 700; font-size: 11px;
+      color: var(--t3); white-space: nowrap; border: none; background: none;
+      border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; flex-shrink: 0;
+    }
+    .tab:hover { color: var(--t2); }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); }
+    .tab-badge {
+      font-family: var(--font); font-weight: 700; font-size: 10px;
+      padding: 1px 6px; border-radius: var(--radius-tag);
+      background: var(--c2); border: 1px solid var(--b1); color: var(--t3);
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .tab.active .tab-badge { background: var(--gbg); border-color: var(--gbrd); color: var(--green); }
+
+    /* ─── SEARCH BAR NA LISTA ────────────────────────────────── */
+    .list-search-wrap {
+      padding: 10px 12px 0;
+      position: relative;
+    }
+    .list-search-wrap .search-icon {
+      position: absolute; left: 22px; top: 50%; transform: translateY(-50%);
+      color: var(--t3); pointer-events: none;
+    }
+    .list-search {
+      width: 100%; height: 38px; padding: 0 36px 0 38px;
+      background: var(--c2); border: 1px solid var(--b1);
+      border-radius: var(--radius-input); color: var(--t1); font-size: 14px;
+      outline: none; transition: border-color .15s;
+    }
+    .list-search::placeholder { color: var(--t3); }
+    .list-search:focus { border-color: var(--b2); }
+    .list-search-clear {
+      position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--t3); font-size: 16px;
+      display: none; line-height: 1; padding: 2px 4px;
+    }
+    .list-search-clear.visible { display: block; }
+
+    /* ─── CONTENT ────────────────────────────────────────────── */
+    .content { padding: 4px 12px 80px; }
+    .panel { display: block; }
+    .panel[hidden] { display: none; }
+
+    /* ─── SEÇÃO ──────────────────────────────────────────────── */
+    .section-hdr { display: flex; align-items: center; gap: 10px; padding: 18px 0 8px; }
+    .section-label {
+      font-family: var(--font); font-weight: 700; font-size: 9.5px;
+      letter-spacing: .18em; text-transform: uppercase; color: var(--t3); white-space: nowrap;
+    }
+    .section-line { flex: 1; height: 1px; background: var(--b1); }
+    .section-count {
+      font-family: var(--font); font-weight: 700; font-size: 10px;
+      padding: 2px 7px; border-radius: var(--radius-tag);
+      background: var(--c1); color: var(--t3); border: 1px solid var(--b1);
+    }
+
+    /* ─── EMPTY STATE / WELCOME ──────────────────────────────── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      padding: 60px 24px; color: var(--t3); font-size: 14px; text-align: center;
+    }
+    .empty-state strong { color: var(--t2); }
+
+    /* Welcome screen (lista completamente vazia) */
+    .welcome {
+      padding: 24px 16px 80px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .welcome-hero {
+      background: linear-gradient(135deg, var(--c1) 0%, var(--c2) 100%);
+      border: 1px solid var(--b1); border-radius: 20px;
+      padding: 32px 24px; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .welcome-hero::before {
+      content: '';
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(54,255,160,.06), transparent 70%);
+    }
+    .welcome-logo {
+      font-family: var(--font); font-weight: 800; font-size: 32px;
+      letter-spacing: -0.02em; margin-bottom: 8px;
+    }
+    .welcome-logo .w { color: var(--t1); }
+    .welcome-logo .g { color: var(--green); }
+    .welcome-desc { font-size: 14px; color: var(--t2); line-height: 1.6; margin-bottom: 20px; }
+    .welcome-steps {
+      display: flex; flex-direction: column; gap: 10px; text-align: left; margin-top: 8px;
+    }
+    .welcome-step {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: var(--c3); border: 1px solid var(--b1);
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .welcome-step-num {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--gbg); border: 1px solid var(--gbrd);
+      color: var(--green); font-family: var(--font); font-weight: 700; font-size: 11px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .welcome-step-text { font-size: 13px; color: var(--t2); line-height: 1.5; }
+    .welcome-step-text strong { color: var(--t1); }
+    .welcome-import-btn {
+      width: 100%; height: 52px; background: var(--green); color: #000; border: none;
+      border-radius: 14px; font-family: var(--font); font-weight: 700; font-size: 15px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity .15s; margin-top: 4px;
+    }
+    .welcome-import-btn:hover { opacity: .88; }
+    .welcome-add-btn {
+      width: 100%; height: 46px; background: var(--c2); color: var(--t1); border: 1px solid var(--b2);
+      border-radius: 14px; font-family: var(--font); font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: border-color .15s;
+    }
+    .welcome-add-btn:hover { border-color: var(--b3); }
+
+    /* CR link no card — sempre visível */
+    .card-cr {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; color: var(--orange); font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 3px 9px; border-radius: var(--radius-tag);
+      border: 1px solid var(--obrd); background: var(--obg);
+      text-decoration: none; margin-top: 4px;
+      transition: opacity .15s, background .15s;
+    }
+    .card-cr:hover { opacity: .85; background: rgba(255,140,90,.15); }
+
+    /* ─── CARD (mobile: horizontal | desktop: vertical em grid) ─ */
+    .card {
+      display: flex; align-items: stretch;
+      background: var(--c1); border: 1px solid var(--b1); border-radius: var(--radius-card);
+      overflow: hidden; margin-bottom: 10px; position: relative; cursor: pointer;
+      transition: border-color .2s, transform .18s, box-shadow .18s;
+      min-height: 110px;
+    }
+    .card:hover {
+      border-color: var(--b3);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,.45);
+    }
+    .card.is-dub { border-left: 3px solid rgba(54,255,160,.6); }
+    .card.is-leg { border-left: 3px solid rgba(255,140,90,.45); }
+    .card.is-done { opacity: .4; filter: grayscale(.8); }
+
+    /* Backdrop colorido a partir do poster */
+    .card-backdrop {
+      position: absolute; inset: 0; z-index: 0;
+      background-image: var(--bkg, none);
+      background-size: cover; background-position: center 20%;
+      filter: blur(28px) brightness(.22) saturate(1.8);
+      transform: scale(1.15);
+    }
+
+    /* Poster (mobile) */
+    .card-poster {
+      width: 76px; flex-shrink: 0; position: relative; z-index: 1; overflow: hidden;
+    }
+    .card-poster img {
+      width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block;
+    }
+    .card-poster-fallback {
+      width: 100%; height: 100%; min-height: 110px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    }
+    .card.is-dub .card-poster-fallback { background: linear-gradient(160deg, rgba(54,255,160,.18) 0%, var(--c2) 100%); }
+    .card.is-leg .card-poster-fallback { background: linear-gradient(160deg, rgba(255,140,90,.14) 0%, var(--c2) 100%); }
+    .card-poster-fallback .fallback-icon { font-size: 24px; opacity: .3; }
+    .card-poster-fallback .fallback-initials {
+      font-family: var(--font); font-weight: 800; font-size: 13px;
+      color: var(--t2); text-align: center; padding: 0 6px; line-height: 1.2;
+    }
+
+    /* Badge no poster */
+    .card-badge {
+      position: absolute; top: 6px; left: 6px; z-index: 3;
+      font-family: var(--font); font-weight: 700; font-size: 8px;
+      text-transform: uppercase; letter-spacing: .06em;
+      padding: 2px 6px; border-radius: var(--radius-tag); backdrop-filter: blur(6px);
+    }
+    .card-badge.b-s { background: rgba(255,111,168,.25); color: var(--pink);  border: 1px solid rgba(255,111,168,.45); }
+    .card-badge.b-w { background: rgba(54,255,160,.2);   color: var(--green); border: 1px solid var(--gbrd); }
+    .card-badge.b-e { background: rgba(255,200,74,.2);   color: var(--amber); border: 1px solid rgba(255,200,74,.45); }
+
+    /* Body do card */
+    .card-body {
+      flex: 1; min-width: 0; padding: 11px 92px 11px 36px;
+      display: flex; flex-direction: column; gap: 5px; position: relative; z-index: 1;
+    }
+    .card-title {
+      font-family: var(--font); font-size: 14px; font-weight: 700; color: var(--t1); line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .card-genres { font-size: 11px; color: var(--t3); }
+    .card-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 1px; }
+
+    /* Tags */
+    .tag {
+      font-family: var(--font); font-weight: 700; font-size: 9px;
+      text-transform: uppercase; letter-spacing: .06em;
+      padding: 2px 8px; border-radius: var(--radius-tag); border: 1px solid;
+    }
+    .t-dub  { color: var(--green);  border-color: var(--gbrd);         background: var(--gbg); }
+    .t-leg  { color: var(--orange); border-color: var(--obrd);         background: var(--obg); }
+    .t-cont { color: var(--blue);   border-color: rgba(90,180,255,.3); background: rgba(90,180,255,.07); }
+    .t-seg  { color: #7ee8a2;       border-color: rgba(126,232,162,.3);background: rgba(126,232,162,.07); }
+    .t-com  { color: var(--purple); border-color: rgba(164,126,255,.3);background: rgba(164,126,255,.07); }
+    .t-nov  { color: var(--amber);  border-color: rgba(255,200,74,.3); background: rgba(255,200,74,.07); }
+    .t-done { color: var(--t3);     border-color: rgba(85,86,128,.25); background: rgba(85,86,128,.06); }
+
+    /* Progresso */
+    .card-progress { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+    .card-progress-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--t3); }
+    .card-progress-pct { font-weight: 700; }
+    .card-progress-pct.dub { color: var(--green); }
+    .card-progress-pct.leg { color: var(--orange); }
+    .progress-track { height: 4px; background: rgba(255,255,255,.06); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; transition: width .4s; }
+    .progress-fill.dub  { background: linear-gradient(90deg, var(--green), #7fffc4); }
+    .progress-fill.leg  { background: linear-gradient(90deg, var(--orange), #ffb07c); }
+    .progress-fill.done { background: var(--t3); }
+    .card-remaining { font-size: 10px; color: var(--t3); }
+    .card-remaining.warn   { color: var(--amber); font-weight: 600; }
+    .card-remaining.urgent { color: var(--pink);  font-weight: 700; }
+    .card-remaining.done   { color: var(--green); font-weight: 700; }
+
+    /* Quick actions — coluna vertical à direita */
+    .card-actions {
+      position: absolute; right: 0; top: 0; bottom: 0; z-index: 2;
+      width: 90px;
+      display: flex; flex-direction: column; align-items: flex-end;
+      justify-content: center; gap: 4px; padding-right: 8px;
+      background: linear-gradient(to right, transparent, rgba(8,9,15,.9) 45%);
+      opacity: 0; transition: opacity .18s; pointer-events: none;
+    }
+    .card:hover .card-actions,
+    .card.show-actions .card-actions { opacity: 1; pointer-events: auto; }
+    .qa-btn {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--b2); border-radius: 8px; background: rgba(20,21,38,.85);
+      font-size: 13px; color: var(--t2); backdrop-filter: blur(4px);
+      transition: background .12s, border-color .12s, color .12s, transform .1s;
+      flex-shrink: 0;
+    }
+    .qa-btn:active, .qa-btn:hover { transform: scale(1.1); }
+    .qa-adv:hover  { color: var(--green);  background: var(--gbg);           border-color: var(--gbrd); }
+    .qa-done:hover { color: var(--amber);  background: rgba(255,200,74,.15); border-color: rgba(255,200,74,.4); }
+    .qa-edit:hover { color: var(--blue);   background: rgba(90,180,255,.15); border-color: rgba(90,180,255,.4); }
+    .qa-del:hover  { color: var(--red);    background: rgba(255,77,77,.15);  border-color: rgba(255,77,77,.4); }
+    .qa-cr { text-decoration: none; }
+    .qa-cr:hover   { background: rgba(255,140,90,.15); border-color: var(--obrd); }
+    .qa-cr img     { width: 16px; height: 16px; border-radius: 3px; display: block; object-fit: contain; }
+
+    /* Drag handle e reorder */
+    .card-drag { position: absolute; left: 0; top: 0; bottom: 0; width: 28px; z-index: 3;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--t3); font-size: 16px; cursor: grab; opacity: 0;
+      transition: opacity .15s; }
+    .card:hover .card-drag { opacity: 1; }
+    .card.drag-over { border-color: var(--green); box-shadow: 0 0 0 2px var(--gbrd); }
+    .card[draggable="true"] { cursor: default; }
+
+    /* ─── DESKTOP: cards em grid vertical ───────────────────── */
+    @media (min-width: 640px) {
+      .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px;
+        align-items: start;
+      }
+      .card {
+        flex-direction: column; min-height: unset; margin-bottom: 0;
+      }
+      .card-poster {
+        width: 100%; height: 160px; flex-shrink: 0;
+      }
+      .card-poster img { object-position: center 15%; }
+      .card-body { padding: 12px 12px 48px 12px; }
+      /* Actions na base do card (desktop) */
+      .card-actions {
+        top: unset; bottom: 0; width: 100%; height: 44px;
+        flex-direction: row; justify-content: flex-end; align-items: center;
+        gap: 6px; padding: 0 10px;
+        background: linear-gradient(to top, rgba(8,9,15,.95) 60%, transparent);
+        opacity: 0;
+      }
+      .card:hover .card-actions { opacity: 1; }
+      .card-poster-fallback { min-height: 160px; }
+    }
+
+    /* ─── LOCK SCREEN ────────────────────────────────────────── */
+    #lock-screen {
+      position: fixed; inset: 0; z-index: 999;
+      background: var(--bg); display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    #lock-screen::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(54,255,160,.06), transparent 70%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(90,180,255,.04), transparent 60%);
+    }
+    .lock-card {
+      width: 100%; max-width: 360px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 0;
+      position: relative; z-index: 1;
+    }
+    .lock-logo {
+      font-family: var(--font); font-weight: 800; font-size: 42px;
+      letter-spacing: -0.03em; margin-bottom: 8px;
+    }
+    .lock-logo .w { color: var(--t1); }
+    .lock-logo .g { color: var(--green); }
+    .lock-tagline {
+      font-size: 14px; color: var(--t3); margin-bottom: 36px; font-weight: 400;
+    }
+    .lock-input-wrap {
+      width: 100%; position: relative; margin-bottom: 12px;
+    }
+    .lock-input {
+      width: 100%; height: 52px; padding: 0 48px 0 18px;
+      background: var(--c2); border: 1.5px solid var(--b2);
+      border-radius: 14px; color: var(--t1); font-size: 16px;
+      font-family: var(--font); letter-spacing: .08em; outline: none;
+      transition: border-color .2s;
+    }
+    .lock-input:focus { border-color: var(--green); }
+    .lock-input.error { border-color: var(--red); animation: shake .3s ease; }
+    .lock-eye {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--t3); font-size: 18px;
+      transition: color .15s;
+    }
+    .lock-eye:hover { color: var(--t1); }
+    .lock-btn {
+      width: 100%; height: 52px; background: var(--green); color: #000;
+      font-family: var(--font); font-weight: 700; font-size: 16px;
+      border: none; border-radius: 14px; margin-bottom: 16px;
+      transition: opacity .15s, transform .1s;
+    }
+    .lock-btn:hover { opacity: .88; }
+    .lock-btn:active { transform: scale(.98); }
+    .lock-error {
+      font-size: 13px; color: var(--red); min-height: 20px;
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25%      { transform: translateX(-8px); }
+      75%      { transform: translateX(8px); }
+    }
+
+    /* ─── DASHBOARD (topo da aba Todas) ─────────────────────── */
+    .dashboard {
+      padding: 14px 0 6px;
+    }
+    .dash-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;
+    }
+    .dash-stat {
+      background: var(--c1); border: 1px solid var(--b1); border-radius: 14px;
+      padding: 12px 8px; text-align: center;
+      transition: border-color .15s;
+    }
+    .dash-stat:hover { border-color: var(--b2); }
+    .dash-stat-val {
+      font-family: var(--font); font-weight: 800; font-size: 22px; line-height: 1;
+      color: var(--t1); margin-bottom: 4px;
+    }
+    .dash-stat-val.green  { color: var(--green); }
+    .dash-stat-val.amber  { color: var(--amber); }
+    .dash-stat-val.blue   { color: var(--blue); }
+    .dash-stat-val.purple { color: var(--purple); }
+    .dash-stat-lbl {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--t3);
+    }
+    /* Destaques rápidos */
+    .dash-highlights {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;
+    }
+    .dash-hl {
+      background: var(--c1); border: 1px solid var(--b1); border-radius: 14px;
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .dash-hl-title {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--t3);
+    }
+    .dash-hl-item {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+    }
+    .dash-hl-item img, .dash-hl-thumb {
+      width: 32px; height: 44px; border-radius: 6px; object-fit: cover;
+      flex-shrink: 0; background: var(--c3);
+    }
+    .dash-hl-thumb {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; opacity: .4;
+    }
+    .dash-hl-name {
+      font-size: 12px; font-weight: 600; color: var(--t1); line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .dash-hl-meta { font-size: 10px; color: var(--t3); }
+
+    /* ─── MODAL DE CONFIRMAÇÃO ───────────────────────────────── */
+    .confirm-sheet {
+      max-width: 360px; border-radius: var(--radius-modal) !important;
+      padding: 24px 22px 20px; text-align: center;
+    }
+    .confirm-icon { font-size: 28px; margin-bottom: 10px; }
+    .confirm-msg  { font-size: 15px; color: var(--t1); line-height: 1.5; margin-bottom: 20px; }
+    .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .confirm-actions .btn-ok {
+      height: 44px; border-radius: var(--radius-btn); border: none;
+      font-family: var(--font); font-weight: 700; font-size: 14px;
+      transition: opacity .15s;
+    }
+    .confirm-actions .btn-ok.danger { background: var(--red); color: #fff; }
+    .confirm-actions .btn-ok.primary { background: var(--green); color: #000; }
+
+    /* ─── MODAL OVERLAY ──────────────────────────────────────── */
+    .ovl {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .ovl.open { opacity: 1; pointer-events: auto; }
+    @media (min-width: 600px) { .ovl { align-items: center; } }
+
+    .sheet {
+      width: 100%; max-width: 520px; max-height: 92vh;
+      background: var(--c1); border-radius: var(--radius-modal) var(--radius-modal) 0 0;
+      overflow-y: auto; overflow-x: hidden;
+      scrollbar-width: none;
+      transform: translateY(40px); transition: transform .25s cubic-bezier(.32,1,.56,1);
+      position: relative;
+    }
+    .sheet::-webkit-scrollbar { display: none; }
+    .ovl.open .sheet { transform: translateY(0); }
+    @media (min-width: 600px) {
+      .sheet {
+        border-radius: var(--radius-modal); max-height: 88vh;
+        transform: scale(.96) translateY(10px);
+      }
+      .ovl.open .sheet { transform: scale(1) translateY(0); }
+    }
+    .drag-handle {
+      width: 40px; height: 4px; background: var(--b2); border-radius: 99px;
+      margin: 12px auto 0; display: block;
+    }
+    @media (min-width: 600px) { .drag-handle { display: none; } }
+
+    /* Sheet header */
+    .sheet-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 18px 12px;
+    }
+    .sheet-title {
+      font-family: var(--font); font-weight: 800; font-size: 16px; color: var(--t1);
+    }
+    .sheet-close {
+      width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+      background: var(--c2); border: 1px solid var(--b1); border-radius: 9px;
+      color: var(--t2); font-size: 18px; transition: color .15s, border-color .15s;
+    }
+    .sheet-close:hover { color: var(--t1); border-color: var(--b2); }
+
+    /* ─── MODAL BUSCA ────────────────────────────────────────── */
+    .src-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 18px 14px; }
+    .src-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 14px 10px; border-radius: 14px;
+      background: var(--c2); border: 1px solid var(--b1); color: var(--t1);
+      transition: border-color .15s, background .15s;
+    }
+    .src-btn.active { border-color: var(--gbrd); background: var(--gbg); }
+    .src-btn-icon { font-size: 22px; }
+    .src-btn-name { font-family: var(--font); font-weight: 700; font-size: 12px; }
+    .src-btn-sub { font-size: 10px; color: var(--t3); }
+    .src-warn {
+      margin: 0 18px 14px; padding: 10px 14px; background: rgba(255,200,74,.08);
+      border: 1px solid rgba(255,200,74,.25); border-radius: 10px;
+      font-size: 12px; color: var(--amber); display: none;
+    }
+    .src-warn.visible { display: block; }
+    .search-row { display: flex; margin: 0 18px 12px; }
+    .search-input {
+      flex: 1; height: 44px; padding: 0 14px; font-size: 14px;
+      background: var(--c2); border: 1px solid var(--b1); border-right: none;
+      border-radius: var(--radius-input) 0 0 var(--radius-input); color: var(--t1); outline: none;
+    }
+    .search-input::placeholder { color: var(--t3); }
+    .search-input:focus { border-color: var(--b2); }
+    .search-btn {
+      height: 44px; padding: 0 18px; background: var(--green); color: #000;
+      font-family: var(--font); font-weight: 700; font-size: 13px;
+      border: none; border-radius: 0 var(--radius-input) var(--radius-input) 0;
+      white-space: nowrap;
+    }
+    .search-btn:hover { opacity: .88; }
+    .search-results { padding: 0 18px; min-height: 80px; }
+    .search-spinner {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 30px 0; color: var(--t2); font-size: 13px;
+    }
+    .spinner {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid var(--b2); border-top-color: var(--green);
+      animation: spin .6s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result-item {
+      display: flex; gap: 12px; align-items: flex-start; padding: 10px 0;
+      border-bottom: 1px solid var(--b1); cursor: pointer; border-radius: 8px;
+      transition: background .12s;
+    }
+    .result-item:hover { background: var(--c2); padding: 10px 8px; margin: 0 -8px; }
+    .result-item:last-child { border-bottom: none; }
+    .result-poster {
+      width: 46px; height: 62px; border-radius: 8px; object-fit: cover;
+      flex-shrink: 0; background: var(--c3);
+    }
+    .result-poster-fallback {
+      width: 46px; height: 62px; border-radius: 8px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--c2), var(--c3));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; opacity: .5;
+    }
+    .result-info { flex: 1; min-width: 0; }
+    .result-title { font-size: 13px; font-weight: 500; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-meta { font-size: 11px; color: var(--t3); margin-top: 2px; }
+    .result-genres { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .result-genre {
+      font-size: 9.5px; color: var(--blue); padding: 1px 6px;
+      border: 1px solid rgba(90,180,255,.25); border-radius: var(--radius-tag);
+      background: rgba(90,180,255,.06);
+    }
+    .search-manual-btn {
+      display: block; text-align: center; width: 100%; margin: 14px 0;
+      padding: 10px; font-size: 13px; color: var(--t2);
+      background: none; border: 1px dashed var(--b2); border-radius: var(--radius-input);
+      transition: color .15s, border-color .15s;
+    }
+    .search-manual-btn:hover { color: var(--t1); border-color: var(--b3); }
+
+    /* ─── MODAL DETALHES ─────────────────────────────────────── */
+    .detail-cover {
+      width: 100%; height: 210px; object-fit: cover; object-position: center 20%;
+      display: block; position: relative;
+    }
+    .detail-cover-wrap {
+      position: relative; height: 210px; background: var(--c3); overflow: hidden;
+    }
+    .detail-cover-wrap img {
+      width: 100%; height: 100%; object-fit: cover; object-position: center 20%;
+    }
+    .detail-cover-wrap .detail-cover-fallback {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 48px; opacity: .2;
+    }
+    .detail-cover-grad {
+      position: absolute; inset: 0;
+      background: linear-gradient(to bottom, rgba(7,8,14,.1) 0%, rgba(7,8,14,.97) 100%);
+    }
+    .detail-close-btn {
+      position: absolute; top: 12px; right: 12px; z-index: 10;
+      width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+      background: rgba(13,14,26,.8); border: 1px solid var(--b2); border-radius: 9px;
+      color: var(--t1); font-size: 18px; backdrop-filter: blur(8px);
+    }
+    .detail-hero { display: flex; gap: 14px; padding: 0 18px 14px; margin-top: -44px; position: relative; }
+    .detail-poster {
+      width: 88px; height: 126px; border-radius: 10px; object-fit: cover;
+      border: 2px solid var(--b2); box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      flex-shrink: 0; background: var(--c3);
+    }
+    .detail-poster-fallback {
+      width: 88px; height: 126px; border-radius: 10px;
+      border: 2px solid var(--b2); background: linear-gradient(135deg, var(--c2), var(--c3));
+      display: flex; align-items: center; justify-content: center; font-size: 28px; opacity: .4;
+      flex-shrink: 0;
+    }
+    .detail-hero-info { flex: 1; min-width: 0; padding-top: 48px; }
+    .detail-title { font-family: var(--font); font-weight: 800; font-size: 15px; color: var(--t1); line-height: 1.25; }
+    .detail-subtitle { font-size: 12px; color: var(--t2); margin-top: 4px; }
+    .detail-badges { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .detail-type-badge {
+      font-family: var(--font); font-weight: 700; font-size: 9px;
+      text-transform: uppercase; letter-spacing: .06em;
+      padding: 2px 8px; border-radius: var(--radius-tag);
+      background: var(--c3); border: 1px solid var(--b2); color: var(--t2);
+    }
+    .detail-score {
+      font-family: var(--font); font-weight: 700; font-size: 9px;
+      padding: 2px 8px; border-radius: var(--radius-tag);
+      background: rgba(255,200,74,.1); border: 1px solid rgba(255,200,74,.3); color: var(--amber);
+    }
+    .detail-dub-badge {
+      font-family: var(--font); font-weight: 700; font-size: 9px;
+      padding: 2px 8px; border-radius: var(--radius-tag);
+    }
+    .detail-dub-badge.dub-yes {
+      background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.3); color: #34d399;
+    }
+    .detail-dub-badge.dub-no {
+      background: var(--c3); border: 1px solid var(--b2); color: var(--t3);
+    }
+    .detail-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1px; margin: 0 18px 14px; background: var(--b1);
+      border-radius: 12px; overflow: hidden;
+    }
+    .detail-stat {
+      background: var(--c2); padding: 12px 8px; text-align: center;
+    }
+    .detail-stat-val { font-family: var(--font); font-weight: 800; font-size: 17px; color: var(--t1); }
+    .detail-stat-lbl { font-size: 10px; color: var(--t3); margin-top: 2px; }
+    .detail-section { padding: 0 18px 14px; }
+    .detail-section-title {
+      font-family: var(--font); font-weight: 700; font-size: 9.5px;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--t3); margin-bottom: 8px;
+    }
+    .detail-genres { display: flex; flex-wrap: wrap; gap: 6px; }
+    .detail-genre {
+      font-size: 11px; color: var(--blue); padding: 3px 10px;
+      border: 1px solid rgba(90,180,255,.25); border-radius: var(--radius-tag);
+      background: rgba(90,180,255,.06);
+    }
+    .detail-synopsis {
+      font-size: 13px; color: var(--t2); line-height: 1.6;
+      overflow: hidden; max-height: 66px; transition: max-height .3s;
+    }
+    .detail-synopsis.expanded { max-height: 1000px; }
+    .detail-toggle {
+      background: none; border: none; color: var(--green); font-size: 12px; margin-top: 6px; padding: 0;
+    }
+    .detail-info-row {
+      background: var(--c2); border-radius: 10px; padding: 11px 14px;
+      font-size: 12px; color: var(--t2); display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .detail-info-row strong { color: var(--t1); }
+    .detail-footer {
+      position: sticky; bottom: 0; background: var(--c1);
+      border-top: 1px solid var(--b1); padding: 14px 18px;
+      display: flex; gap: 10px;
+    }
+    .detail-footer .btn-link {
+      flex: 1; height: 44px; display: flex; align-items: center; justify-content: center;
+      background: var(--c2); border: 1px solid var(--b1); border-radius: var(--radius-btn);
+      color: var(--t2); font-size: 13px; gap: 6px; transition: border-color .15s, color .15s;
+    }
+    .detail-footer .btn-link:hover { border-color: var(--b2); color: var(--t1); }
+    .detail-footer .btn-add-wl {
+      flex: 2; height: 44px; display: flex; align-items: center; justify-content: center;
+      background: var(--green); color: #000; border: none; border-radius: var(--radius-btn);
+      font-family: var(--font); font-weight: 700; font-size: 14px; gap: 6px;
+      transition: opacity .15s;
+    }
+    .detail-footer .btn-add-wl:hover { opacity: .88; }
+    .detail-footer .btn-add-wl.already {
+      background: var(--c2); color: var(--green); border: 1px solid var(--gbrd);
+    }
+
+    /* ─── MODAL FLUXO ────────────────────────────────────────── */
+    .flow-body { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 18px; }
+    .flow-media-title { font-weight: 600; font-size: 14px; color: var(--t1); }
+    .flow-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+    .flow-label {
+      font-family: var(--font); font-weight: 700; font-size: 10px;
+      letter-spacing: .1em; text-transform: uppercase; color: var(--t3); margin-bottom: 8px; display: block;
+    }
+    .flow-radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .flow-radio {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      background: var(--c2); border: 1px solid var(--b1); border-radius: 10px; cursor: pointer;
+      font-size: 13px; color: var(--t2); transition: border-color .15s, color .15s, background .15s;
+    }
+    .flow-radio input { display: none; }
+    .flow-radio.selected { border-color: var(--gbrd); background: var(--gbg); color: var(--green); }
+    .flow-ep-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .flow-field { display: flex; flex-direction: column; gap: 4px; }
+    .flow-field label { font-size: 11px; color: var(--t3); }
+    .flow-input {
+      height: 42px; padding: 0 12px; font-size: 14px;
+      background: var(--c2); border: 1px solid var(--b1);
+      border-radius: var(--radius-input); color: var(--t1); outline: none;
+    }
+    .flow-input:focus { border-color: var(--b2); }
+    .flow-toggle-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .flow-toggle {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      background: var(--c2); border: 1px solid var(--b1); border-radius: 10px; cursor: pointer;
+      font-size: 13px; color: var(--t2); transition: border-color .15s, color .15s, background .15s;
+      user-select: none;
+    }
+    .flow-toggle.active { border-color: var(--gbrd); background: var(--gbg); color: var(--green); }
+    .flow-textarea {
+      width: 100%; padding: 10px 12px; font-size: 14px; line-height: 1.5;
+      background: var(--c2); border: 1px solid var(--b1);
+      border-radius: var(--radius-input); color: var(--t1); outline: none; resize: none; min-height: 72px;
+    }
+    .flow-textarea:focus { border-color: var(--b2); }
+    .flow-footer { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; padding-top: 4px; }
+    .btn-cancel {
+      height: 46px; background: var(--c2); border: 1px solid var(--b1);
+      border-radius: var(--radius-btn); color: var(--t2); font-size: 14px;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-cancel:hover { border-color: var(--b2); color: var(--t1); }
+    .btn-confirm {
+      height: 46px; background: var(--green); color: #000; border: none;
+      border-radius: var(--radius-btn); font-family: var(--font);
+      font-weight: 700; font-size: 14px; transition: opacity .15s;
+    }
+    .btn-confirm:hover { opacity: .88; }
+
+    /* ─── MODAL MANUAL ───────────────────────────────────────── */
+    .manual-body { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+    .manual-field { display: flex; flex-direction: column; gap: 4px; }
+    .manual-field label { font-size: 11px; color: var(--t3); }
+    .manual-input, .manual-select {
+      height: 42px; padding: 0 12px; font-size: 14px;
+      background: var(--c2); border: 1px solid var(--b1);
+      border-radius: var(--radius-input); color: var(--t1); outline: none; width: 100%;
+    }
+    .manual-input:focus, .manual-select:focus { border-color: var(--b2); }
+    .manual-select option { background: var(--c2); }
+    .manual-textarea {
+      width: 100%; padding: 10px 12px; font-size: 14px; line-height: 1.5;
+      background: var(--c2); border: 1px solid var(--b1);
+      border-radius: var(--radius-input); color: var(--t1); outline: none; resize: none; min-height: 72px;
+    }
+    .manual-textarea:focus { border-color: var(--b2); }
+    .manual-row { display: grid; gap: 8px; }
+    .manual-row.cols2 { grid-template-columns: 1fr 1fr; }
+    .manual-row.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+    .manual-preview {
+      width: 100%; aspect-ratio: 3/2; background: var(--c3); border-radius: 10px;
+      overflow: hidden; display: none; margin-top: 6px;
+    }
+    .manual-preview.visible { display: block; }
+    .manual-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .manual-radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* ─── MODAL SETTINGS ─────────────────────────────────────── */
+    .settings-body { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+    .settings-field { display: flex; flex-direction: column; gap: 6px; }
+    .settings-label { font-size: 12px; font-weight: 500; color: var(--t2); }
+    .settings-hint { font-size: 11px; color: var(--t3); line-height: 1.5; }
+    .settings-hint a { color: var(--blue); }
+    .settings-input {
+      height: 44px; padding: 0 12px; font-size: 14px;
+      background: var(--c2); border: 1px solid var(--b1);
+      border-radius: var(--radius-input); color: var(--t1); outline: none;
+    }
+    .settings-input:focus { border-color: var(--b2); }
+    .settings-input:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-save {
+      width: 100%; height: 46px; background: var(--green); color: #000; border: none;
+      border-radius: var(--radius-btn); font-family: var(--font);
+      font-weight: 700; font-size: 14px; margin-top: 4px; transition: opacity .15s;
+    }
+    .btn-save:hover { opacity: .88; }
+
+    /* FAB removido — inject movido para configurações */
+
+    /* ─── TOAST ──────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%) translateY(12px);
+      z-index: 200; background: var(--c2); border: 1px solid var(--b2);
+      border-radius: 22px; padding: 10px 18px; font-size: 13px; color: var(--t1);
+      white-space: nowrap; max-width: calc(100vw - 32px);
+      opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ─── GRID DE CARDS (tablet+) ────────────────────────────── */
+    @media (min-width: 600px) {
+      .cards-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- ── HEADER ─────────────────────────────────────────────── -->
+    <header class="hdr glass">
+      <a class="hdr-logo" href="#" aria-label="Watchlist">
+        <span class="w">Watch</span><span class="g">list</span>
+      </a>
+      <div class="hdr-actions">
+        <button class="btn-settings" id="btn-settings" aria-label="Configurações">
+          <i class="ri-settings-3-line" style="font-size:18px"></i>
+        </button>
+        <button class="btn-add" id="btn-add" aria-label="Adicionar mídia">
+          <i class="ri-add-line" style="font-size:16px"></i>
+          Adicionar
+        </button>
+      </div>
+    </header>
+
+    <!-- ── TABS ──────────────────────────────────────────────── -->
+    <nav class="tabs-wrap glass" aria-label="Filtros da watchlist">
+      <div class="tabs" role="tablist">
+        <button class="tab active" role="tab" aria-selected="true"  data-tab="all">     Todas          <span class="tab-badge" id="badge-all">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="meio">    Em andamento   <span class="tab-badge" id="badge-meio">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="nova-tp"> Nova temporada <span class="tab-badge" id="badge-nova-tp">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="nc">      Não comecei    <span class="tab-badge" id="badge-nc">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="ficar">   Ficar de olho  <span class="tab-badge" id="badge-ficar">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="term">    Terminados     <span class="tab-badge" id="badge-term">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="dub">     Só dublados    <span class="tab-badge" id="badge-dub">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="prio">    Prioridades    <span class="tab-badge" id="badge-prio">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="prox">    Próx. de acabar <span class="tab-badge" id="badge-prox">0</span></button>
+        <button class="tab"        role="tab" aria-selected="false" data-tab="alfa">    Alfabética      <span class="tab-badge" id="badge-alfa">0</span></button>
+      </div>
+    </nav>
+
+    <!-- ── SEARCH BAR NA LISTA ───────────────────────────────── -->
+    <div class="list-search-wrap">
+      <i class="ri-search-line search-icon" style="font-size:16px;position:absolute;left:22px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none"></i>
+      <input class="list-search" id="list-search" type="search" placeholder="Filtrar na lista..." autocomplete="off">
+      <button class="list-search-clear" id="list-search-clear" aria-label="Limpar filtro"><i class="ri-close-line" style="font-size:15px"></i></button>
+    </div>
+
+    <!-- ── CONTEÚDO (painéis por aba) ───────────────────────── -->
+    <main class="content">
+      <div id="panel-all"     class="panel" role="tabpanel"></div>
+      <div id="panel-meio"    class="panel" role="tabpanel" hidden></div>
+      <div id="panel-nova-tp" class="panel" role="tabpanel" hidden></div>
+      <div id="panel-nc"      class="panel" role="tabpanel" hidden></div>
+      <div id="panel-ficar"   class="panel" role="tabpanel" hidden></div>
+      <div id="panel-term"    class="panel" role="tabpanel" hidden></div>
+      <div id="panel-dub"     class="panel" role="tabpanel" hidden></div>
+      <div id="panel-prio"    class="panel" role="tabpanel" hidden></div>
+      <div id="panel-prox"    class="panel" role="tabpanel" hidden></div>
+      <div id="panel-alfa"    class="panel" role="tabpanel" hidden></div>
+    </main>
+
+  </div>
+
+  <!-- ── LOCK SCREEN ───────────────────────────────────────── -->
+  <div id="lock-screen" style="display:none">
+    <div class="lock-card">
+      <div class="lock-logo"><span class="w">Watch</span><span class="g">list</span></div>
+      <div class="lock-tagline">Digite a senha para continuar</div>
+      <div class="lock-input-wrap">
+        <input class="lock-input" id="lock-input" type="password" placeholder="Senha" autocomplete="off">
+        <button class="lock-eye" id="lock-eye" onclick="toggleLockEye()" aria-label="Mostrar/ocultar senha">
+          <i class="ri-eye-line" id="lock-eye-icon" style="font-size:18px"></i>
+        </button>
+      </div>
+      <button class="lock-btn" onclick="doLogin()">Entrar</button>
+      <div class="lock-error" id="lock-error"></div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: PROGRESSO INJECT (#ovl-inject) ─────────────── -->
+  <div class="ovl" id="ovl-inject" role="dialog" aria-modal="true">
+    <div class="sheet" style="max-width:420px;border-radius:var(--radius-modal)!important;padding:28px 24px 24px">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:6px">Importando watchlist</div>
+        <div id="inject-item-name" style="font-size:15px;font-weight:700;color:var(--t1);min-height:22px;margin-bottom:16px">Iniciando...</div>
+        <div style="height:6px;background:var(--b1);border-radius:99px;overflow:hidden;margin-bottom:10px">
+          <div id="inject-progress-bar" style="height:100%;background:linear-gradient(90deg,var(--green),#7fffc4);border-radius:99px;width:0%;transition:width .3s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t3)">
+          <span id="inject-progress-text">0 / 0</span>
+          <span id="inject-progress-pct" style="color:var(--green);font-weight:700">0%</span>
+        </div>
+      </div>
+      <div id="inject-log" style="max-height:160px;overflow-y:auto;font-size:11px;color:var(--t3);line-height:2;text-align:center"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: EDITAR ITEM (#ovl-edit)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ovl" id="ovl-edit" role="dialog" aria-modal="true" aria-label="Editar item">
+    <div class="sheet">
+      <span class="drag-handle"></span>
+      <div class="sheet-hdr">
+        <span class="sheet-title">Editar</span>
+        <button class="sheet-close" onclick="closeModal('ovl-edit')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+      </div>
+      <div class="flow-body" id="edit-body">
+        <!-- Título -->
+        <div class="flow-field">
+          <label class="flow-label">Título</label>
+          <input class="flow-input" id="edit-title" type="text" placeholder="Nome da mídia" style="height:44px;width:100%">
+        </div>
+        <!-- CR link -->
+        <div class="flow-field">
+          <label class="flow-label">Link Crunchyroll / plataforma</label>
+          <input class="flow-input" id="edit-cr" type="url" placeholder="https://crunchyroll.com/..." style="height:44px;width:100%">
+        </div>
+        <!-- Ep + Total -->
+        <div class="flow-ep-fields">
+          <div class="flow-field">
+            <label>Episódio atual</label>
+            <input class="flow-input" id="edit-ep" type="number" min="0">
+          </div>
+          <div class="flow-field">
+            <label>Total eps (temporada)</label>
+            <input class="flow-input" id="edit-tot" type="number" min="0">
+          </div>
+        </div>
+        <!-- Temporada -->
+        <div class="flow-ep-fields">
+          <div class="flow-field">
+            <label>Temporada atual</label>
+            <input class="flow-input" id="edit-s" type="number" min="1">
+          </div>
+          <div class="flow-field">
+            <label>Total temporadas</label>
+            <input class="flow-input" id="edit-sns" type="number" min="0">
+          </div>
+        </div>
+        <!-- Áudio -->
+        <div>
+          <span class="flow-label">Áudio</span>
+          <div class="flow-radio-group">
+            <label class="flow-radio" id="edit-dub-lbl">
+              <input type="radio" name="edit-audio" value="dub"> <i class="ri-flag-line"></i> Dublado PT-BR
+            </label>
+            <label class="flow-radio" id="edit-leg-lbl">
+              <input type="radio" name="edit-audio" value="leg"> <i class="ri-chat-2-line"></i> Legendado
+            </label>
+          </div>
+        </div>
+        <!-- Status -->
+        <div class="flow-field">
+          <label class="flow-label">Status</label>
+          <select class="flow-input" id="edit-st" style="height:44px">
+            <option value="comecar">Não comecei</option>
+            <option value="continuar">Em andamento</option>
+            <option value="seguir">A seguir</option>
+            <option value="novamente">Assistir de novo</option>
+            <option value="terminado">Terminado</option>
+          </select>
+        </div>
+        <!-- Listas -->
+        <div>
+          <span class="flow-label">Listas</span>
+          <div class="edit-lists-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <label class="flow-toggle" id="edit-list-meio"      onclick="toggleEditList('meio')">      <i class="ri-play-circle-line"></i> Em andamento</label>
+            <label class="flow-toggle" id="edit-list-nc"        onclick="toggleEditList('nc')">        <i class="ri-time-line"></i> Não comecei</label>
+            <label class="flow-toggle" id="edit-list-nova-tp"   onclick="toggleEditList('nova-tp')">   <i class="ri-refresh-line"></i> Nova temporada</label>
+            <label class="flow-toggle" id="edit-list-ficar"     onclick="toggleEditList('ficar')">     <i class="ri-eye-line"></i> Ficar de olho</label>
+            <label class="flow-toggle" id="edit-list-term"      onclick="toggleEditList('term')">      <i class="ri-check-double-line"></i> Terminados</label>
+          </div>
+        </div>
+        <!-- Nota -->
+        <div class="flow-field">
+          <label class="flow-label">Nota pessoal</label>
+          <textarea class="flow-textarea" id="edit-note" rows="3" placeholder="Observações..."></textarea>
+        </div>
+        <!-- Botões -->
+        <div class="flow-footer">
+          <button class="btn-cancel" onclick="closeModal('ovl-edit')">Cancelar</button>
+          <button class="btn-confirm" style="display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveEdit()"><i class="ri-save-line"></i> Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: CONFIRMAÇÃO (#ovl-confirm)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ovl" id="ovl-confirm" role="alertdialog" aria-modal="true">
+    <div class="sheet confirm-sheet">
+      <div class="confirm-icon" id="confirm-icon"><i class="ri-error-warning-line" style="font-size:28px;color:var(--amber)"></i></div>
+      <div class="confirm-msg" id="confirm-msg"></div>
+      <div class="confirm-actions">
+        <button class="btn-cancel" id="confirm-cancel" style="height:44px">Cancelar</button>
+        <button class="btn-ok primary" id="confirm-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TOAST ─────────────────────────────────────────────── -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: BUSCA (#ovl-search)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ovl" id="ovl-search" role="dialog" aria-modal="true" aria-label="Buscar mídia">
+    <div class="sheet">
+      <span class="drag-handle"></span>
+      <div class="sheet-hdr">
+        <span class="sheet-title">Adicionar mídia</span>
+        <button class="sheet-close" onclick="closeModal('ovl-search')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+      </div>
+
+      <!-- Seletor de fonte -->
+      <div class="src-grid">
+        <button class="src-btn active" id="src-jikan" onclick="selectSource('jikan')">
+          <span class="src-btn-icon">🎌</span>
+          <span class="src-btn-name">MyAnimeList</span>
+          <span class="src-btn-sub">Anime · Manga · OVA</span>
+        </button>
+        <button class="src-btn" id="src-tmdb" onclick="selectSource('tmdb')">
+          <span class="src-btn-icon">🎬</span>
+          <span class="src-btn-name">TMDB</span>
+          <span class="src-btn-sub">Filmes · Séries</span>
+        </button>
+      </div>
+
+      <!-- Aviso TMDB sem key -->
+      <div class="src-warn" id="tmdb-warn">
+        ⚠ Configure o token do TMDB em ⚙ Configurações para usar esta aba
+      </div>
+
+      <!-- Campo de busca -->
+      <div class="search-row">
+        <input class="search-input" id="search-input" type="search" placeholder="Nome em pt, en, jp..." autocomplete="off">
+        <button class="search-btn" id="search-btn" onclick="doSearch()">Buscar</button>
+      </div>
+
+      <!-- Resultados -->
+      <div class="search-results" id="search-results"></div>
+
+      <!-- Adicionar manualmente -->
+      <button class="search-manual-btn" onclick="openModal('ovl-manual'); closeModal('ovl-search')">
+        + Adicionar manualmente (sem API)
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: DETALHES (#ovl-detail)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ovl" id="ovl-detail" role="dialog" aria-modal="true" aria-label="Detalhes da mídia">
+    <div class="sheet" id="detail-sheet">
+      <!-- Preenchido via JS -->
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: FLUXO DE ADIÇÃO (#ovl-flow)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ovl" id="ovl-flow" role="dialog" aria-modal="true" aria-label="Configurar adição">
+    <div class="sheet">
+      <span class="drag-handle"></span>
+      <div class="sheet-hdr">
+        <span class="sheet-title" id="flow-title">Adicionar</span>
+        <button class="sheet-close" onclick="closeModal('ovl-flow')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+      </div>
+      <div class="flow-body">
+        <div>
+          <div class="flow-media-title" id="flow-media-name"></div>
+          <div class="flow-sub">Configure como você quer acompanhar</div>
+        </div>
+
+        <!-- Já está assistindo? -->
+        <div>
+          <span class="flow-label">Você está assistindo agora?</span>
+          <div class="flow-radio-group">
+            <label class="flow-radio" id="flow-sim">
+              <input type="radio" name="flow-watching" value="sim">
+              ✓ Sim, já comecei
+            </label>
+            <label class="flow-radio selected" id="flow-nao">
+              <input type="radio" name="flow-watching" value="nao" checked>
+              Não, começo do E1
+            </label>
+          </div>
+        </div>
+
+        <!-- Ep/Temporada (visível se "Sim") -->
+        <div id="flow-ep-section" style="display:none">
+          <span class="flow-label">Onde você está</span>
+          <div class="flow-ep-fields">
+            <div class="flow-field">
+              <label>Episódio atual</label>
+              <input class="flow-input" id="flow-ep" type="number" min="1" value="1">
+            </div>
+            <div class="flow-field">
+              <label>Temporada</label>
+              <input class="flow-input" id="flow-season" type="number" min="1" value="1">
+              <span id="flow-season-hint" style="font-size:10px;color:var(--green);margin-top:2px"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Áudio -->
+        <div>
+          <span class="flow-label">Áudio disponível</span>
+          <div class="flow-radio-group">
+            <label class="flow-radio selected" id="flow-dub">
+              <input type="radio" name="flow-audio" value="dub" checked>
+              🇧🇷 Dublado PT-BR
+            </label>
+            <label class="flow-radio" id="flow-leg">
+              <input type="radio" name="flow-audio" value="leg">
+              💬 Legendado
+            </label>
+          </div>
+        </div>
+
+        <!-- Marcar também -->
+        <div>
+          <span class="flow-label">Marcar também como</span>
+          <div class="flow-toggle-group">
+            <button class="flow-toggle" id="flow-ficar" onclick="toggleFlowTag('flow-ficar')"><i class="ri-eye-line"></i> Ficar de olho</button>
+            <button class="flow-toggle" id="flow-nova" onclick="toggleFlowTag('flow-nova')"><i class="ri-refresh-line"></i> Nova temporada</button>
+          </div>
+        </div>
+
+        <!-- Nota -->
+        <div>
+          <span class="flow-label">Nota pessoal</span>
+          <textarea class="flow-textarea" id="flow-note" placeholder="T3 confirmada para Julho 2026..."></textarea>
+        </div>
+
+        <!-- Botões -->
+        <div class="flow-footer">
+          <button class="btn-cancel" onclick="closeModal('ovl-flow')">Cancelar</button>
+          <button class="btn-confirm" onclick="confirmAdd()">Adicionar à Watchlist</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: MANUAL (#ovl-manual)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ovl" id="ovl-manual" role="dialog" aria-modal="true" aria-label="Adicionar manualmente">
+    <div class="sheet">
+      <span class="drag-handle"></span>
+      <div class="sheet-hdr">
+        <span class="sheet-title">Adicionar manualmente</span>
+        <button class="sheet-close" onclick="closeModal('ovl-manual')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+      </div>
+      <div class="manual-body">
+        <div class="manual-field">
+          <label>Nome *</label>
+          <input class="manual-input" id="man-title" type="text" placeholder="Nome da mídia" autocomplete="off">
+        </div>
+        <div class="manual-field">
+          <label>URL da imagem de capa</label>
+          <input class="manual-input" id="man-img" type="url" placeholder="https://..." oninput="previewManualImg()">
+          <div class="manual-preview" id="man-preview"><img id="man-preview-img" src="" alt=""></div>
+        </div>
+        <div class="manual-field">
+          <label>Gêneros (separados por vírgula)</label>
+          <input class="manual-input" id="man-genres" type="text" placeholder="Ação, Fantasia, Romance">
+        </div>
+        <div class="manual-field">
+          <label>Sinopse</label>
+          <textarea class="manual-textarea" id="man-synopsis" placeholder="Descrição da mídia..."></textarea>
+        </div>
+        <div class="manual-field">
+          <label>Link Crunchyroll / plataforma</label>
+          <input class="manual-input" id="man-cr" type="url" placeholder="https://crunchyroll.com/...">
+        </div>
+        <div class="manual-row cols2">
+          <div class="manual-field"><label>Ep atual</label><input class="manual-input" id="man-ep" type="number" min="0" value="0"></div>
+          <div class="manual-field"><label>Total eps temporada</label><input class="manual-input" id="man-tot" type="number" min="0" value="0"></div>
+        </div>
+        <div class="manual-row cols3">
+          <div class="manual-field"><label>Temp. atual</label><input class="manual-input" id="man-s" type="number" min="1" value="1"></div>
+          <div class="manual-field"><label>Total temps.</label><input class="manual-input" id="man-sns" type="number" min="0" value="0"></div>
+          <div class="manual-field"><label>Eps/temp.</label><input class="manual-input" id="man-ept" type="number" min="0" value="0"></div>
+        </div>
+        <div>
+          <span class="flow-label">Áudio</span>
+          <div class="manual-radio-group">
+            <label class="flow-radio selected" id="man-dub-lbl">
+              <input type="radio" name="man-audio" value="dub" checked> 🇧🇷 Dublado
+            </label>
+            <label class="flow-radio" id="man-leg-lbl">
+              <input type="radio" name="man-audio" value="leg"> 💬 Legendado
+            </label>
+          </div>
+        </div>
+        <div class="manual-field">
+          <label>Status</label>
+          <select class="manual-select" id="man-st">
+            <option value="comecar">Não comecei</option>
+            <option value="continuar">Em andamento</option>
+            <option value="seguir">A seguir</option>
+            <option value="novamente">Assistir de novo</option>
+            <option value="terminado">Terminado</option>
+          </select>
+        </div>
+        <div class="manual-field">
+          <label>Nota pessoal</label>
+          <textarea class="manual-textarea" id="man-note" placeholder="Observações..."></textarea>
+        </div>
+        <div class="flow-footer">
+          <button class="btn-cancel" onclick="closeModal('ovl-manual')">Cancelar</button>
+          <button class="btn-confirm" onclick="saveManual()">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MODAL: CONFIGURAÇÕES (#ovl-settings)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ovl" id="ovl-settings" role="dialog" aria-modal="true" aria-label="Configurações">
+    <div class="sheet">
+      <span class="drag-handle"></span>
+      <div class="sheet-hdr">
+        <span class="sheet-title">Configurações</span>
+        <button class="sheet-close" onclick="closeModal('ovl-settings')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-field">
+          <span class="settings-label">TMDB API Read Access Token (v4)</span>
+          <input class="settings-input" id="cfg-tmdb" type="text" placeholder="eyJhbGciOiJIUzI1NiJ9..." autocomplete="off" spellcheck="false">
+          <span class="settings-hint">
+            Acesse <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a>
+            e copie o campo <strong style="color:var(--t1)">"API Read Access Token (v4 auth)"</strong> — começa com "eyJ...".
+          </span>
+        </div>
+        <div class="settings-field">
+          <span class="settings-label">Jikan (MyAnimeList)</span>
+          <input class="settings-input" value="api.jikan.moe/v4 — público e gratuito" disabled>
+        </div>
+        <button class="btn-save" onclick="saveSettings()">Salvar configurações</button>
+
+        <div style="height:1px;background:var(--b1);margin:4px 0"></div>
+
+        <div class="settings-field">
+          <span class="settings-label">Senha de acesso (lock screen)</span>
+          <input class="settings-input" id="cfg-pin" type="password" placeholder="Deixe em branco para desativar" autocomplete="new-password">
+          <span class="settings-hint">Se configurada, será pedida ao abrir o app. Útil para proteger suas API keys.</span>
+        </div>
+
+        <div style="height:1px;background:var(--b1);margin:4px 0"></div>
+
+        <div class="settings-field">
+          <span class="settings-label">Compartilhar / Backup</span>
+          <span class="settings-hint">Exporte sua watchlist para fazer backup ou compartilhar com amigos.</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+            <button class="btn-cancel" style="height:40px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="exportWatchlist()"><i class="ri-download-2-line"></i> Exportar JSON</button>
+            <button class="btn-cancel" style="height:40px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="document.getElementById('import-file').click()"><i class="ri-upload-2-line"></i> Importar JSON</button>
+          </div>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importWatchlist(event)">
+          <button class="btn-cancel" style="height:40px;font-size:13px;margin-top:8px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="copyShareLink()"><i class="ri-links-line"></i> Copiar link compartilhável</button>
+
+        <div style="height:1px;background:var(--b1);margin:4px 0"></div>
+
+        <div class="settings-field">
+          <span class="settings-label">Importar minha watchlist do MAL</span>
+          <span class="settings-hint">Busca automaticamente os 31 animes configurados via MyAnimeList (requer internet). Itens já existentes serão ignorados.</span>
+          <button class="btn-save" style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="closeModal('ovl-settings');runInject()">
+            <i class="ri-robot-2-line"></i> Buscar watchlist do MAL (31 animes)
+          </button>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ════════════════════════════════════════════════════════
+    // CONSTANTES
+    // ════════════════════════════════════════════════════════
+    const JIKAN = 'https://api.jikan.moe/v4';
+    const TMDB  = 'https://api.themoviedb.org/3';
+    const TMDB_IMG = 'https://image.tmdb.org/t/p';
+
+    // ════════════════════════════════════════════════════════
+    // BULK INJECT — dados dos 31 animes
+    // Formato: [malId, ep, season, dub, status, lists[], note?, badge?, badgeLabel?]
+    // ════════════════════════════════════════════════════════
+    const INJECT_LIST = [
+      // Em andamento
+      [38707,   2, 3, 1, 'continuar', ['meio'],              'T3 finalizada — T4 sem previsão'],
+      [108465,  4, 2, 1, 'continuar', ['meio','ficar'],      'T3 confirmada — Julho 2026', 'b-s', 'S3 Jul/2026'],
+      [151807, 11, 2, 1, 'continuar', ['meio'],              '⚡ Faltam só 15 eps!'],
+      [157897,  4, 2, 1, 'continuar', ['meio']],
+      [140196,  1, 2, 1, 'continuar', ['meio']],
+      [32949,   5, 1, 1, 'continuar', ['meio'],              'T1 e T2 com PT-BR'],
+      [170516,  8, 1, 1, 'continuar', ['meio','ficar'],      'T2 anunciada para 2026', 'b-s', 'S2 2026'],
+      [32901,   1, 1, 1, 'continuar', ['meio'],              'T2 anunciada em 2021, sem data'],
+      [119456,  2, 1, 1, 'continuar', ['meio'],              'Série completa: 24 eps em 2 partes'],
+      [160166,  1, 1, 1, 'continuar', ['meio']],
+      [130298,  1, 1, 1, 'continuar', ['meio']],
+      [139636,  3, 1, 1, 'continuar', ['meio']],
+      [175441, 10, 1, 1, 'seguir',    ['meio'],              '⚡ Faltam só 2 eps!'],
+      [168175,  7, 1, 1, 'seguir',    ['meio','ficar'],      'T2 anunciada, sem data', 'b-e', 'T2 a vir'],
+      [170512,  3, 1, 1, 'seguir',    ['meio']],
+      [154391,  6, 1, 1, 'seguir',    ['meio'],              'T2 do especial disponível'],
+      [57030,   1, 1, 0, 'continuar', ['meio'],              'Apenas EN dub, sem PT-BR'],
+      [162804,  1, 1, 0, 'continuar', ['meio'],              'Sem PT-BR na Crunchyroll'],
+      [161645,  6, 1, 0, 'seguir',    ['meio'],              'Sem PT-BR confirmado'],
+      // Assistir de novo / terminado
+      [52991,  12, 2, 1, 'novamente', ['nova-tp','term','ficar'], 'T2 completa! T3 sem data', 'b-w', 'T2 ok'],
+      // Não comecei
+      [101764,  0, 1, 1, 'comecar',   ['nova-tp','nc'],      'T1 e T2 com PT-BR'],
+      [18617,   0, 1, 0, 'comecar',   ['nova-tp','nc'],      'OVA do anime de 2013 — sem PT-BR'],
+      [46102,   0, 1, 1, 'comecar',   ['nc']],
+      [109080,  0, 1, 0, 'comecar',   ['nc'],                'Dub EN disponível, sem PT-BR'],
+      [103940,  0, 1, 0, 'comecar',   ['nc'],                'Dub EN disponível, sem PT-BR'],
+      [169805,  0, 1, 0, 'comecar',   ['nc'],                'Sem PT-BR confirmado'],
+      [167896,  0, 1, 0, 'comecar',   ['nc'],                'Sem PT-BR confirmado'],
+    ];
+
+    const INJECT_BY_NAME = [
+      { q:'Ousama Ranking',                title:'Ranking of Kings',                        ep:0,s:1,dub:1,st:'comecar',lists:['nc'] },
+      { q:'Metallic Rouge',                title:'Metallic Rouge',                          ep:0,s:1,dub:1,st:'comecar',lists:['nc'] },
+      { q:'Kaifuku Jutsushi no Yarinaoshi',title:'The Healer Banished from His Party',      ep:0,s:1,dub:1,st:'comecar',lists:['nc'] },
+      { q:'Raise wa Tanin ga Ii',          title:'Yakuza Fiancé: Raise wa Tanin ga Ii',     ep:0,s:1,dub:1,st:'comecar',lists:['nc'] },
+    ];
+
+    // ════════════════════════════════════════════════════════
+    // INDEXEDDB
+    // ════════════════════════════════════════════════════════
+    let db = null;
+
+    async function initDB() {
+      db = await idb.openDB('watchlist', 1, {
+        upgrade(database) {
+          const store = database.createObjectStore('items', { keyPath: 'id' });
+          store.createIndex('malId',  'malId',  { unique: false });
+          store.createIndex('tmdbId', 'tmdbId', { unique: false });
+          store.createIndex('st',     'st',     { unique: false });
+          database.createObjectStore('config', { keyPath: 'key' });
+        }
+      });
+    }
+
+    async function getAllItems() {
+      const all = await db.getAll('items');
+      return all.filter(i => !i._rm);
+    }
+
+    async function putItem(item) {
+      item.updatedAt = Date.now();
+      await db.put('items', item);
+    }
+
+    async function softDeleteItem(id) {
+      const item = await db.get('items', id);
+      if (!item) return;
+      await db.put('items', { ...item, _rm: true, updatedAt: Date.now() });
+    }
+
+    async function getConfig(key) {
+      const row = await db.get('config', key);
+      return row ? row.value : null;
+    }
+
+    async function setConfig(key, value) {
+      await db.put('config', { key, value });
+    }
+
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ESTADO GLOBAL
+    // ════════════════════════════════════════════════════════
+    const state = {
+      tab:      'all',
+      items:    [],
+      query:    '',
+      tmdbKey:  '',
+      // dados temporários do fluxo de adição
+      _pendingApiData: null,
+      _searchSrc: 'jikan',
+    };
+
+    // ════════════════════════════════════════════════════════
+    // UTILITÁRIOS
+    // ════════════════════════════════════════════════════════
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    async function fetchWithRetry(url, opts = {}, retries = 2) {
+      // Suporte a options com headers (ex: Authorization Bearer para TMDB v4)
+      const { headers, ...rest } = typeof opts === 'number' ? { retries: opts } : opts;
+      const actualRetries = typeof opts === 'number' ? opts : retries;
+      for (let i = 0; i <= actualRetries; i++) {
+        try {
+          const r = await fetch(url, { signal: AbortSignal.timeout(8000), headers, ...rest });
+          if (r.status === 429) { await delay(2000 * (i + 1)); continue; }
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return await r.json();
+        } catch (e) {
+          if (i === actualRetries) throw e;
+          await delay(1000 * (i + 1));
+        }
+      }
+    }
+
+    function normalize(str) {
+      return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function initials(title) {
+      return (title || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    }
+
+    function rem(item) {
+      return Math.max(0, item.tot - (item._ep ?? item.ep));
+    }
+
+    // ════════════════════════════════════════════════════════
+    // CONFIRM DIALOG CUSTOMIZADO (substitui o confirm() nativo)
+    // ════════════════════════════════════════════════════════
+    let _confirmResolve = null;
+
+    function showConfirm(msg, { okText = 'Confirmar', cancelText = 'Cancelar', danger = false, icon = '❓' } = {}) {
+      return new Promise(resolve => {
+        _confirmResolve = resolve;
+        document.getElementById('confirm-msg').textContent = msg;
+        document.getElementById('confirm-icon').textContent = icon;
+        const okBtn = document.getElementById('confirm-ok');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        okBtn.textContent = okText;
+        okBtn.className = `btn-ok ${danger ? 'danger' : 'primary'}`;
+        cancelBtn.textContent = cancelText;
+        openModal('ovl-confirm');
+      });
+    }
+
+    document.getElementById('confirm-ok').addEventListener('click', () => {
+      closeModal('ovl-confirm');
+      if (_confirmResolve) { _confirmResolve(true); _confirmResolve = null; }
+    });
+    document.getElementById('confirm-cancel').addEventListener('click', () => {
+      closeModal('ovl-confirm');
+      if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+    });
+
+    // ════════════════════════════════════════════════════════
+    // TOAST
+    // ════════════════════════════════════════════════════════
+    let _toastTimer = null;
+    function showToast(msg, duration) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(_toastTimer);
+      const ms = duration ?? (msg.length > 40 ? 4000 : 2200);
+      _toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // MODAIS
+    // ════════════════════════════════════════════════════════
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+      // Só restaura scroll se nenhum modal estiver aberto
+      if (!document.querySelector('.ovl.open')) {
+        document.body.style.overflow = '';
+      }
+    }
+
+    // Não fechar ao clicar fora — usuário fecha pelo botão X
+
+    // ════════════════════════════════════════════════════════
+    // RENDER ENGINE
+    // ════════════════════════════════════════════════════════
+    function filterByTab(items, tab) {
+      switch (tab) {
+        case 'all':     return sortByOrder(items);
+        case 'meio':    return sortByOrder(items.filter(i => i.lists?.includes('meio')));
+        case 'nova-tp': return sortByOrder(items.filter(i => i.lists?.includes('nova-tp')));
+        case 'nc':      return sortByOrder(items.filter(i => i.lists?.includes('nc')));
+        case 'ficar':   return sortByOrder(items.filter(i => i.lists?.includes('ficar')));
+        case 'term':    return sortByOrder(items.filter(i => i.lists?.includes('term')));
+        case 'dub':     return sortByOrder(items.filter(i => i.dub === 1));
+        case 'alfa':    return items.slice().sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+        case 'prio':    return sortPrio(items.filter(i =>
+                          !i._done &&
+                          i.st !== 'terminado' &&
+                          !i.lists?.includes('term') &&
+                          !(i.tot > 0 && rem(i) === 0)   // excluir temporada completa
+                        ));
+        case 'prox': {
+          const w = items.filter(i => (i._ep ?? i.ep) > 0 && i.tot > 0 && rem(i) > 0);
+          return w.sort((a, b) => rem(a) - rem(b)).slice(0, 20);
+        }
+        default: return items;
+      }
+    }
+
+    function sortByOrder(items) {
+      return items.slice().sort((a, b) => (a.sortOrder ?? a.addedAt) - (b.sortOrder ?? b.addedAt));
+    }
+
+    function sortPrio(items) {
+      return items.slice().sort((a, b) => prioLevel(a) - prioLevel(b));
+    }
+
+    function prioLevel(i) {
+      if (rem(i) <= 3 && (i._ep ?? i.ep) > 0)                              return 1;
+      if (i.dub === 1 && ['continuar','seguir'].includes(i.st))             return 2;
+      if (i.dub === 1 && (i.lists?.includes('nc') || i.lists?.includes('nova-tp'))) return 3;
+      return 4;
+    }
+
+    function updateBadges() {
+      const all = state.items;
+      const counts = {
+        'all':     all.length,
+        'meio':    all.filter(i => i.lists?.includes('meio')).length,
+        'nova-tp': all.filter(i => i.lists?.includes('nova-tp')).length,
+        'nc':      all.filter(i => i.lists?.includes('nc')).length,
+        'ficar':   all.filter(i => i.lists?.includes('ficar')).length,
+        'term':    all.filter(i => i.lists?.includes('term')).length,
+        'dub':     all.filter(i => i.dub === 1).length,
+        'alfa':    all.length,
+        'prio':    all.filter(i => !i._done && i.st !== 'terminado' && !i.lists?.includes('term') && !(i.tot > 0 && rem(i) === 0)).length,
+        'prox':    all.filter(i => (i._ep ?? i.ep) > 0 && i.tot > 0 && rem(i) > 0).length,
+      };
+      Object.entries(counts).forEach(([tab, n]) => {
+        const el = document.getElementById(`badge-${tab}`);
+        if (el) el.textContent = n;
+      });
+    }
+
+    async function renderAll() {
+      state.items = await getAllItems();
+      updateBadges();
+      renderPanel();
+    }
+
+    function renderPanel() {
+      const panel = document.getElementById(`panel-${state.tab}`);
+      if (!panel) return;
+
+      // Lista totalmente vazia → welcome screen
+      if (state.items.length === 0 && state.tab === 'all' && !state.query) {
+        panel.innerHTML = welcomeHTML();
+        return;
+      }
+
+      let items = filterByTab(state.items, state.tab);
+
+      if (state.query) {
+        const q = normalize(state.query);
+        items = items.filter(i => normalize(i.title).includes(q));
+      }
+
+      if (items.length === 0) {
+        panel.innerHTML = emptyStateHTML();
+        return;
+      }
+
+      panel.innerHTML = '';
+
+      // Dashboard no topo da aba "Todas" (sem filtro de texto ativo)
+      if (state.tab === 'all' && !state.query) {
+        const dashDiv = document.createElement('div');
+        dashDiv.innerHTML = dashboardHTML(state.items);
+        panel.appendChild(dashDiv.firstElementChild);
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'cards-grid';
+      wrap.innerHTML = items.map(i => cardHTML(i)).join('');
+      panel.appendChild(wrap);
+
+      // Click: abrir detalhes locais (exceto nos botões de ação)
+      // Touch: mostrar quick actions
+      panel.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', e => {
+          if (e.target.closest('.qa-btn') || e.target.closest('.card-drag') || e.target.closest('.card-cr')) return;
+          openLocalDetail(card.dataset.id);
+        });
+        card.addEventListener('touchstart', () => {
+          document.querySelectorAll('.card.show-actions').forEach(c => c.classList.remove('show-actions'));
+          card.classList.add('show-actions');
+        }, { passive: true });
+      });
+
+      // Drag & drop para reordenar
+      initDrag(wrap);
+    }
+
+    function welcomeHTML() {
+      return `
+        <div class="welcome">
+          <div class="welcome-hero">
+            <div class="welcome-logo"><span class="w">Watch</span><span class="g">list</span></div>
+            <div class="welcome-desc">Sua lista pessoal de animes, séries e filmes.<br>Tudo salvo no seu dispositivo, funciona offline.</div>
+            <div class="welcome-steps">
+              <div class="welcome-step">
+                <div class="welcome-step-num">1</div>
+                <div class="welcome-step-text"><strong>Preencha automaticamente</strong> — abra as <strong>⚙ Configurações</strong> e clique em "Buscar watchlist do MAL" para importar os 31 animes (requer internet).</div>
+              </div>
+              <div class="welcome-step">
+                <div class="welcome-step-num">2</div>
+                <div class="welcome-step-text"><strong>Adicione manualmente</strong> — use <strong>+ Adicionar</strong> no topo para buscar qualquer anime ou série.</div>
+              </div>
+              <div class="welcome-step">
+                <div class="welcome-step-num">3</div>
+                <div class="welcome-step-text"><strong>Configure o TMDB</strong> em ⚙ para buscar filmes e séries ocidentais.</div>
+              </div>
+            </div>
+          </div>
+          <button class="welcome-import-btn" onclick="runInject()" style="display:flex;align-items:center;justify-content:center;gap:8px"><i class="ri-robot-2-line" style="font-size:18px"></i> Buscar minha watchlist via MAL (31 animes)</button>
+          <button class="welcome-add-btn" onclick="document.getElementById('btn-add').click()" style="display:flex;align-items:center;justify-content:center;gap:8px"><i class="ri-add-line" style="font-size:16px"></i> Adicionar mídia manualmente</button>
+        </div>`;
+    }
+
+    function emptyStateHTML() {
+      const msg = state.query
+        ? `Nenhum resultado para "<strong>${state.query}</strong>"`
+        : 'Nada aqui ainda — use <strong>+ Adicionar!</strong>';
+      return `<div class="empty-state">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+          <circle cx="28" cy="28" r="27" stroke="var(--b2)" stroke-width="1.5"/>
+          <text x="28" y="35" text-anchor="middle" font-size="22">🎬</text>
+        </svg>
+        <p>${msg}</p>
+      </div>`;
+    }
+
+    // ════════════════════════════════════════════════════════
+    // CARD HTML
+    // ════════════════════════════════════════════════════════
+    function cardHTML(item) {
+      const ep    = item._ep ?? item.ep;
+      const total = item.tot;
+      const isDub = item.dub === 1;
+      const isDone = item._done;
+      const hasProg = ep > 0 && total > 0;
+      const pct = hasProg ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+      const remaining = hasProg ? rem(item) : null;
+
+      // Poster
+      let posterHTML;
+      if (item.img) {
+        posterHTML = `<img src="${item.img}" alt="" referrerpolicy="no-referrer"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="card-poster-fallback" style="display:none">
+            <span class="fallback-icon">🎬</span>
+            <span class="fallback-initials">${initials(item.title)}</span>
+          </div>`;
+      } else {
+        posterHTML = `<div class="card-poster-fallback">
+          <span class="fallback-icon">🎬</span>
+          <span class="fallback-initials">${initials(item.title)}</span>
+        </div>`;
+      }
+
+      // Badge no poster
+      const badgeHTML = item.badge
+        ? `<span class="card-badge ${item.badge}">${item.bl || ''}</span>`
+        : '';
+
+      // Gêneros
+      const genres = (item.genres || []).slice(0, 2).join(' · ');
+
+      // Tags
+      const tags = buildTags(item);
+
+      // Progresso
+      let progressHTML = '';
+      if (hasProg) {
+        const fillClass = isDone ? 'done' : isDub ? 'dub' : 'leg';
+        const pctClass  = isDone ? '' : isDub ? 'dub' : 'leg';
+        let remText = '', remClass = '';
+        if (remaining === 0) { remText = '✓ Temporada completa'; remClass = 'done'; }
+        else if (remaining <= 2) { remText = `${remaining} ep${remaining > 1 ? 's' : ''} restantes`; remClass = 'urgent'; }
+        else if (remaining <= 5) { remText = `${remaining} eps restantes`; remClass = 'warn'; }
+        else { remText = `${remaining} eps restantes`; remClass = ''; }
+
+        progressHTML = `
+          <div class="card-progress">
+            <div class="card-progress-row">
+              <span>Ep ${ep}/${total}${item.s > 1 ? ` · T${item.s}` : ''}</span>
+              <span class="card-progress-pct ${pctClass}">${pct}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill ${fillClass}" style="width:${pct}%"></div>
+            </div>
+            <span class="card-remaining ${remClass}">${remText}</span>
+          </div>`;
+      }
+
+      return `
+        <div class="card${isDub ? ' is-dub' : ' is-leg'}${isDone ? ' is-done' : ''}" data-id="${item.id}" draggable="true"${item.img ? ` style="--bkg:url('${item.img}')"` : ''}>
+          ${item.img ? '<div class="card-backdrop"></div>' : ''}
+          <div class="card-drag" title="Arrastar para reordenar"><i class="ri-draggable" style="font-size:18px"></i></div>
+          <div class="card-poster">
+            ${posterHTML}
+            ${badgeHTML}
+          </div>
+          <div class="card-body">
+            <div class="card-title">${item.title}</div>
+            ${genres ? `<div class="card-genres">${genres}</div>` : ''}
+            <div class="card-tags">${tags}</div>
+            ${progressHTML}
+          </div>
+          <div class="card-actions">
+            ${item.cr ? (() => {
+              const favicon = streamFavicon(item.cr, item.crLogo);
+              const sname = streamName(item);
+              return `<a class="qa-btn qa-cr" href="${item.cr}" target="_blank" onclick="event.stopPropagation()" aria-label="${sname}" title="${sname}">
+                <img src="${favicon}" onerror="this.outerHTML='<i class=ri-play-circle-line style=font-size:14px></i>'">
+              </a>`;
+            })() : ''}
+            <button class="qa-btn qa-adv"  onclick="advEp('${item.id}')"      aria-label="+1 ep"     title="+1 ep"><i class="ri-check-line" style="font-size:14px"></i></button>
+            <button class="qa-btn qa-done" onclick="toggleDone('${item.id}')" aria-label="Concluído" title="Concluído"><i class="ri-checkbox-blank-circle-line" style="font-size:14px"></i></button>
+            <button class="qa-btn qa-edit" onclick="openEdit('${item.id}')"   aria-label="Editar"    title="Editar"><i class="ri-edit-2-line" style="font-size:14px"></i></button>
+            <button class="qa-btn qa-del"  onclick="removeItem('${item.id}')" aria-label="Remover"   title="Remover"><i class="ri-delete-bin-2-line" style="font-size:14px"></i></button>
+          </div>
+        </div>`;
+    }
+
+    function buildTags(item) {
+      const tags = [];
+      if (item.dub === 1) tags.push('<span class="tag t-dub">Dub PT-BR</span>');
+      else tags.push('<span class="tag t-leg">Legendado</span>');
+
+      const stMap = {
+        continuar: '<span class="tag t-cont">Continuar</span>',
+        seguir:    '<span class="tag t-seg">A seguir</span>',
+        comecar:   '<span class="tag t-com">Começar</span>',
+        novamente: '<span class="tag t-nov">Assistir de novo</span>',
+        terminado: '<span class="tag t-done">Terminado</span>',
+      };
+      if (stMap[item.st]) tags.push(stMap[item.st]);
+      return tags.join('');
+    }
+
+    // ════════════════════════════════════════════════════════
+    // DETAIL LOCAL (clicar no card)
+    // ════════════════════════════════════════════════════════
+    function openLocalDetail(id) {
+      const item = state.items.find(i => i.id === id);
+      if (!item) return;
+
+      const ep    = item._ep ?? item.ep;
+      const total = item.tot;
+      const isDub = item.dub === 1;
+      const hasProg = ep > 0 && total > 0;
+      const pct = hasProg ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+      const remaining = hasProg ? rem(item) : null;
+
+      let remText = '', remClass = '';
+      if (hasProg) {
+        if (remaining === 0)      { remText = '✓ Temporada completa'; remClass = 'done'; }
+        else if (remaining <= 2)  { remText = `${remaining} ep${remaining > 1 ? 's' : ''} restantes`; remClass = 'urgent'; }
+        else if (remaining <= 5)  { remText = `${remaining} eps restantes`; remClass = 'warn'; }
+        else                      { remText = `${remaining} eps restantes`; remClass = ''; }
+      }
+
+      const coverHeight = item.img ? '180px' : '60px';
+
+      const sheet = document.getElementById('detail-sheet');
+      sheet.innerHTML = `
+        <div class="detail-cover-wrap" style="height:${coverHeight}">
+          ${item.img ? `<img src="${item.img}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : ''}
+          <div class="detail-cover-grad"></div>
+          <button class="detail-close-btn" onclick="closeModal('ovl-detail')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+        </div>
+        <div class="detail-hero">
+          ${item.img
+            ? `<img class="detail-poster" src="${item.img}" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=detail-poster-fallback><i class=ri-film-line style=font-size:28px;opacity:.4></i></div>'">`
+            : '<div class="detail-poster-fallback"><i class="ri-film-line" style="font-size:28px;opacity:.4"></i></div>'}
+          <div class="detail-hero-info">
+            <div class="detail-title">${item.title}</div>
+            ${item.titleAlt ? `<div class="detail-subtitle">${item.titleAlt}</div>` : ''}
+            <div class="detail-badges" style="margin-top:8px">${buildTags(item)}</div>
+          </div>
+        </div>
+
+        ${hasProg ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Progresso</div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t2);margin-bottom:6px">
+            <span>Ep ${ep}/${total}${item.s > 1 ? ` · T${item.s}` : ''}</span>
+            <span style="color:${isDub ? 'var(--green)' : 'var(--orange)'}">${pct}%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill ${isDub ? 'dub' : 'leg'}" style="width:${pct}%"></div>
+          </div>
+          <div style="margin-top:5px;font-size:10px" class="card-remaining ${remClass}">${remText}</div>
+        </div>` : ''}
+
+        ${(item.genres || []).length ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Gêneros</div>
+          <div class="detail-genres">${item.genres.map(g => `<span class="detail-genre">${g}</span>`).join('')}</div>
+        </div>` : ''}
+
+        ${item.synopsis ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Sinopse</div>
+          <div class="detail-synopsis" id="detail-syn">${item.synopsis}</div>
+          <button class="detail-toggle" onclick="toggleSynopsis()">Ver mais ▾</button>
+        </div>` : ''}
+
+        ${item.note ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Nota</div>
+          <div class="detail-info-row" style="grid-template-columns:1fr;font-size:13px">${item.note}</div>
+        </div>` : ''}
+
+        <div class="detail-footer">
+          <button class="btn-add-wl" style="flex:1.5;display:flex;align-items:center;justify-content:center;gap:6px" onclick="advEp('${item.id}');closeModal('ovl-detail')"><i class="ri-check-line"></i> +1 ep</button>
+          ${item.cr ? (() => {
+            const fav = streamFavicon(item.cr, item.crLogo);
+            const sn  = streamName(item);
+            return `<a class="btn-link" href="${item.cr}" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--orange);border-color:var(--obrd)">
+              <img src="${fav}" style="width:16px;height:16px;border-radius:3px;object-fit:contain" onerror="this.outerHTML='<i class=ri-play-circle-line></i>'"> ${sn}
+            </a>`;
+          })() : ''}
+          <button class="btn-link" style="display:flex;align-items:center;justify-content:center;gap:5px;color:var(--blue);border-color:rgba(90,180,255,.3)"
+            onclick="openEdit('${item.id}')"><i class="ri-edit-2-line"></i> Editar</button>
+          <button class="btn-link" style="color:var(--red);border-color:rgba(255,77,77,.2);display:flex;align-items:center;justify-content:center;padding:0 12px"
+            onclick="removeItem('${item.id}');closeModal('ovl-detail')"><i class="ri-delete-bin-2-line"></i></button>
+        </div>`;
+
+      openModal('ovl-detail');
+    }
+
+    // ════════════════════════════════════════════════════════
+    // QUICK ACTIONS
+    // ════════════════════════════════════════════════════════
+    async function advEp(id) {
+      const item = state.items.find(i => i.id === id);
+      if (!item) return;
+
+      const cur = (item._ep ?? item.ep) + 1;
+      item._ep = cur;
+
+      // F7-5: ao chegar no último ep, finalizar automaticamente
+      if (item.tot > 0 && cur >= item.tot) {
+        item._done = true;
+        item.st = 'terminado';
+        item.lists = (item.lists || []).filter(l => l !== 'meio');
+        if (!item.lists.includes('term')) item.lists.push('term');
+        showToast(`✓ ${item.title} finalizado!`);
+      } else {
+        showToast(`✓ +1 ep → E${cur}`);
+      }
+
+      await putItem(item);
+      await renderAll();
+    }
+
+    async function toggleDone(id) {
+      const item = state.items.find(i => i.id === id);
+      if (!item) return;
+      item._done = !item._done;
+      await putItem(item);
+      await renderAll();
+      showToast(item._done ? '✓ Marcado como concluído' : 'Desmarcado');
+    }
+
+    async function removeItem(id) {
+      const item = state.items.find(i => i.id === id);
+      const name = item ? item.title : 'item';
+      const ok = await showConfirm(`Remover "${name}" da lista?`, {
+        okText: 'Remover', cancelText: 'Cancelar', danger: true, icon: '🗑️'
+      });
+      if (!ok) return;
+      await softDeleteItem(id);
+      await renderAll();
+      showToast(`${name} removido`);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // DRAG & DROP REORDER
+    // ════════════════════════════════════════════════════════
+    let _dragEl = null;
+
+    function initDrag(grid) {
+      const cards = [...grid.querySelectorAll('.card')];
+      cards.forEach(card => {
+        // Só arrasta pelo handle
+        const handle = card.querySelector('.card-drag');
+        if (handle) {
+          handle.addEventListener('mousedown', () => { card.draggable = true; });
+          card.addEventListener('dragend', () => { card.draggable = false; });
+        }
+
+        card.addEventListener('dragstart', e => {
+          _dragEl = card;
+          requestAnimationFrame(() => card.style.opacity = '.35');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        card.addEventListener('dragend', () => {
+          _dragEl = null;
+          card.style.opacity = '';
+          grid.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+        });
+        card.addEventListener('dragover', e => {
+          e.preventDefault();
+          if (!_dragEl || _dragEl === card) return;
+          grid.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+          card.classList.add('drag-over');
+        });
+        card.addEventListener('drop', async e => {
+          e.preventDefault();
+          if (!_dragEl || _dragEl === card) return;
+          card.classList.remove('drag-over');
+          const fromId = _dragEl.dataset.id;
+          const toId   = card.dataset.id;
+          const fromItem = state.items.find(i => i.id === fromId);
+          const toItem   = state.items.find(i => i.id === toId);
+          if (!fromItem || !toItem) return;
+          // Trocar sortOrder
+          const fromOrder = fromItem.sortOrder ?? fromItem.addedAt;
+          const toOrder   = toItem.sortOrder   ?? toItem.addedAt;
+          fromItem.sortOrder = toOrder;
+          toItem.sortOrder   = fromOrder;
+          await putItem(fromItem);
+          await putItem(toItem);
+          await renderAll();
+        });
+      });
+    }
+
+    // ════════════════════════════════════════════════════════
+    // EDITAR ITEM
+    // ════════════════════════════════════════════════════════
+    let _editId = null;
+
+    const EDIT_LISTS = ['meio','nc','nova-tp','ficar','term'];
+
+    function toggleEditList(key) {
+      document.getElementById(`edit-list-${key}`)?.classList.toggle('active');
+    }
+
+    function openEdit(id) {
+      const item = state.items.find(i => i.id === id);
+      if (!item) return;
+      _editId = id;
+
+      document.getElementById('edit-title').value = item.title || '';
+      document.getElementById('edit-cr').value    = item.cr    || '';
+      document.getElementById('edit-ep').value    = item._ep ?? item.ep ?? 0;
+      document.getElementById('edit-tot').value   = item.tot  ?? 0;
+      document.getElementById('edit-s').value     = item.s    ?? 1;
+      document.getElementById('edit-sns').value   = item.sns  ?? 0;
+      document.getElementById('edit-st').value    = item.st   || 'comecar';
+      document.getElementById('edit-note').value  = item.note || '';
+
+      // Áudio
+      document.querySelectorAll('[name=edit-audio]').forEach(r => {
+        r.checked = r.value === (item.dub === 1 ? 'dub' : 'leg');
+      });
+      document.getElementById('edit-dub-lbl').classList.toggle('selected', item.dub === 1);
+      document.getElementById('edit-leg-lbl').classList.toggle('selected', item.dub !== 1);
+
+      // Listas
+      EDIT_LISTS.forEach(key => {
+        const el = document.getElementById(`edit-list-${key}`);
+        if (el) el.classList.toggle('active', item.lists?.includes(key));
+      });
+
+      closeModal('ovl-detail');
+      openModal('ovl-edit');
+    }
+
+    async function saveEdit() {
+      if (!_editId) return;
+      const item = state.items.find(i => i.id === _editId);
+      if (!item) return;
+
+      const ep  = parseInt(document.getElementById('edit-ep').value)  || 0;
+      const tot = parseInt(document.getElementById('edit-tot').value) || 0;
+      const isDub = document.querySelector('[name=edit-audio]:checked')?.value === 'dub';
+
+      item.title = document.getElementById('edit-title').value.trim() || item.title;
+      const newCr = document.getElementById('edit-cr').value.trim();
+      // Se o CR mudou, resetar crName/crLogo para auto-detectar
+      if (newCr !== item.cr) { item.crName = ''; item.crLogo = ''; }
+      item.cr    = newCr;
+      item.ep    = ep;
+      item._ep   = ep;
+      item.tot   = tot;
+      item.s     = parseInt(document.getElementById('edit-s').value)   || 1;
+      item.sns   = parseInt(document.getElementById('edit-sns').value) || 0;
+      item.st    = document.getElementById('edit-st').value;
+      item.note  = document.getElementById('edit-note').value.trim();
+      item.dub   = isDub ? 1 : 0;
+
+      // Listas (manual — substitui completamente)
+      item.lists = EDIT_LISTS.filter(key =>
+        document.getElementById(`edit-list-${key}`)?.classList.contains('active')
+      );
+
+      // Auto-marcar terminado se ep atingiu tot
+      if (tot > 0 && ep >= tot) {
+        item._done = true;
+        if (item.st !== 'terminado') item.st = 'terminado';
+        if (!item.lists.includes('term')) item.lists.push('term');
+        item.lists = item.lists.filter(l => l !== 'meio');
+      }
+
+      await putItem(item);
+      closeModal('ovl-edit');
+      await renderAll();
+      showToast(`✓ ${item.title} atualizado`);
+      _editId = null;
+    }
+
+    // Radio edit-audio
+    document.querySelectorAll('[name=edit-audio]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('edit-dub-lbl').classList.toggle('selected', r.value === 'dub');
+        document.getElementById('edit-leg-lbl').classList.toggle('selected', r.value === 'leg');
+      });
+    });
+
+    // ════════════════════════════════════════════════════════
+    // TABS
+    // ════════════════════════════════════════════════════════
+    function switchTab(tabKey) {
+      state.tab = tabKey;
+      document.querySelectorAll('.tab').forEach(btn => {
+        const active = btn.dataset.tab === tabKey;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+        if (active) btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      });
+      document.querySelectorAll('.panel').forEach(panel => {
+        panel.hidden = panel.id !== `panel-${tabKey}`;
+      });
+      renderPanel();
+    }
+
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // ════════════════════════════════════════════════════════
+    // SEARCH BAR NA LISTA
+    // ════════════════════════════════════════════════════════
+    const listSearchEl = document.getElementById('list-search');
+    const listSearchClear = document.getElementById('list-search-clear');
+
+    listSearchEl.addEventListener('input', () => {
+      state.query = listSearchEl.value.trim();
+      listSearchClear.classList.toggle('visible', state.query.length > 0);
+      renderPanel();
+    });
+
+    listSearchClear.addEventListener('click', () => {
+      listSearchEl.value = '';
+      state.query = '';
+      listSearchClear.classList.remove('visible');
+      listSearchEl.focus();
+      renderPanel();
+    });
+
+    // ════════════════════════════════════════════════════════
+    // HELPERS DE EPISÓDIOS / DURAÇÃO
+    // ════════════════════════════════════════════════════════
+    // Converte "23 min per ep" → 23 (minutos)
+    function parseDuration(str) {
+      if (!str) return null;
+      const h = str.match(/(\d+)\s*hr/);
+      const m = str.match(/(\d+)\s*min/);
+      return (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0) || null;
+    }
+
+    // Formata duração em texto legível
+    function fmtDuration(min) {
+      if (!min) return null;
+      if (min >= 60) return `${Math.floor(min/60)}h${min%60 > 0 ? ` ${min%60}min` : ''}`;
+      return `${min}min`;
+    }
+
+    // Mapa {season_number → episode_count} das temporadas TMDB
+    function buildSeasonsMap(seasons) {
+      return Object.fromEntries(
+        (seasons || [])
+          .filter(s => s.season_number > 0)
+          .map(s => [s.season_number, s.episode_count])
+      );
+    }
+
+    // ════════════════════════════════════════════════════════
+    // STREAMING HELPERS
+    // ════════════════════════════════════════════════════════
+    // Retorna URL do favicon/logo da plataforma de streaming
+    function streamFavicon(url, logoUrl) {
+      if (logoUrl) return logoUrl; // logo do TMDB (já é URL completa)
+      try {
+        const domain = new URL(url).hostname;
+        return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+      } catch { return null; }
+    }
+
+    // Retorna o nome "limpo" do serviço a partir da URL se crName não estiver definido
+    function streamName(item) {
+      if (item.crName) return item.crName;
+      try {
+        const h = new URL(item.cr).hostname.replace('www.', '');
+        const known = {
+          'crunchyroll.com':   'Crunchyroll',
+          'netflix.com':       'Netflix',
+          'primevideo.com':    'Prime Video',
+          'disneyplus.com':    'Disney+',
+          'max.com':           'Max',
+          'hbomax.com':        'Max',
+          'globoplay.globo.com':'Globoplay',
+          'funimation.com':    'Funimation',
+          'hidive.com':        'Hidive',
+          'apple.com':         'Apple TV+',
+        };
+        return known[h] || h;
+      } catch { return 'Assistir'; }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // TRADUÇÃO DE GÊNEROS (mapa estático EN→PT-BR)
+    // ════════════════════════════════════════════════════════
+    const GENRE_PT = {
+      'Action':           'Ação',
+      'Adventure':        'Aventura',
+      'Comedy':           'Comédia',
+      'Drama':            'Drama',
+      'Fantasy':          'Fantasia',
+      'Horror':           'Terror',
+      'Mystery':          'Mistério',
+      'Psychological':    'Psicológico',
+      'Romance':          'Romance',
+      'Sci-Fi':           'Ficção Científica',
+      'Science Fiction':  'Ficção Científica',
+      'Slice of Life':    'Slice of Life',
+      'Sports':           'Esportes',
+      'Supernatural':     'Sobrenatural',
+      'Suspense':         'Suspense',
+      'Thriller':         'Suspense',
+      'Ecchi':            'Ecchi',
+      'Mecha':            'Mecha',
+      'Music':            'Música',
+      'School':           'Escolar',
+      'Shounen':          'Shounen',
+      'Shoujo':           'Shoujo',
+      'Seinen':           'Seinen',
+      'Josei':            'Josei',
+      'Military':         'Militar',
+      'Police':           'Policial',
+      'Historical':       'Histórico',
+      'History':          'Histórico',
+      'Demons':           'Demônios',
+      'Samurai':          'Samurai',
+      'Magic':            'Magia',
+      'Space':            'Espaço',
+      'Martial Arts':     'Artes Marciais',
+      'Super Power':      'Super Poder',
+      'Vampire':          'Vampiro',
+      'Harem':            'Harém',
+      'Game':             'Game',
+      'Parody':           'Paródia',
+      'Kids':             'Infantil',
+      'Isekai':           'Isekai',
+      'Award Winning':    'Premiado',
+      'Gourmet':          'Gastronomia',
+      'Racing':           'Corrida',
+      'Strategy Game':    'Jogo de Estratégia',
+      'Crossdressing':    'Crossdressing',
+      'Gore':             'Gore',
+      'Survival':         'Sobrevivência',
+      'Time Travel':      'Viagem no Tempo',
+      'Mythology':        'Mitologia',
+      'Reincarnation':    'Reencarnação',
+      'Delinquents':      'Delinquentes',
+      'Love Polygon':     'Polígono Amoroso',
+      'Performing Arts':  'Artes Cênicas',
+      'Adult Cast':       'Elenco Adulto',
+      'Anthropomorphic':  'Antropomórfico',
+      'High Stakes Game': 'Jogo de Alto Risco',
+      'Iyashikei':        'Iyashikei',
+      'Reverse Harem':    'Reverse Harém',
+    };
+
+    function translateGenre(name) {
+      return GENRE_PT[name] || name;
+    }
+
+    // ════════════════════════════════════════════════════════
+    // TRADUÇÃO DE SINOPSE (Google Translate unofficial, sem chave)
+    // ════════════════════════════════════════════════════════
+    async function translateText(text, toLang = 'pt-BR') {
+      if (!text || text.length < 10) return text;
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${toLang}&dt=t&q=${encodeURIComponent(text.slice(0, 4000))}`;
+        const res  = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        const data = await res.json();
+        return data[0].map(x => x[0]).filter(Boolean).join('');
+      } catch {
+        return text; // fallback para o original em inglês
+      }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // JIKAN API
+    // ════════════════════════════════════════════════════════
+    async function searchJikan(query) {
+      const data = await fetchWithRetry(`${JIKAN}/anime?q=${encodeURIComponent(query)}&limit=15&sfw=true`);
+      return data.data || [];
+    }
+
+    function jikanResultHTML(item) {
+      const poster = item.images?.jpg?.image_url || '';
+      const year   = item.aired?.prop?.from?.year || '';
+      const eps    = item.episodes ? `${item.episodes} eps` : '';
+      const score  = item.score ? `⭐${item.score}` : '';
+      const meta   = [item.type, year, eps, score].filter(Boolean).join(' · ');
+      const genres = (item.genres || []).slice(0, 3).map(g =>
+        `<span class="result-genre">${translateGenre(g.name)}</span>`).join('');
+      // Título em inglês preferencial
+      const titleEN  = item.title_english || item.title;
+      const titleAlt = (item.title !== titleEN) ? item.title : '';
+
+      return `<div class="result-item" onclick="openDetailJikan(${item.mal_id})">
+        ${poster
+          ? `<img class="result-poster" src="${poster}" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=result-poster-fallback><i class=ri-sword-line style=font-size:18px;opacity:.4></i></div>'">`
+          : '<div class="result-poster-fallback"><i class="ri-sword-line" style="font-size:18px;opacity:.4"></i></div>'}
+        <div class="result-info">
+          <div class="result-title">${titleEN}</div>
+          ${titleAlt ? `<div class="result-meta" style="font-size:10px;color:var(--t3)">${titleAlt}</div>` : ''}
+          <div class="result-meta">${meta}</div>
+          <div class="result-genres">${genres}</div>
+        </div>
+      </div>`;
+    }
+
+    async function openDetailJikan(malId) {
+      closeModal('ovl-search');
+      openModal('ovl-detail');
+      const sheet = document.getElementById('detail-sheet');
+      sheet.innerHTML = '<div style="padding:40px;text-align:center"><div class="spinner" style="margin:auto"></div></div>';
+
+      try {
+        // Buscar detalhes + streaming + personagens (dub PT-BR) em paralelo
+        const [data, streamData, charsData] = await Promise.all([
+          fetchWithRetry(`${JIKAN}/anime/${malId}`),
+          fetchWithRetry(`${JIKAN}/anime/${malId}/streaming`).catch(() => ({ data: [] })),
+          fetchWithRetry(`${JIKAN}/anime/${malId}/characters`).catch(() => ({ data: [] })),
+        ]);
+        const d = data.data;
+        const alreadyAdded = state.items.some(i => i.malId === malId);
+
+        // Detectar dublagem PT-BR
+        const chars = charsData.data || [];
+        const hasPtBrDub = chars.some(c =>
+          c.voice_actors?.some(va => va.language === 'Portuguese (Brazilian)')
+        );
+
+        // Link de streaming (CR prioritário)
+        const streams = streamData.data || [];
+        const crStream = streams.find(s => /crunchyroll/i.test(s.name));
+        const streamLink = crStream || streams[0] || null;
+
+        const cover = d.images?.jpg?.large_image_url || '';
+        const poster = d.images?.webp?.large_image_url || d.images?.jpg?.large_image_url || '';
+        const genres = (d.genres || []).map(g => `<span class="detail-genre">${translateGenre(g.name)}</span>`).join('');
+        const studios = (d.studios || []).map(s => s.name).join(', ') || '—';
+        const synopsis = d.synopsis || 'Sem sinopse disponível.';
+
+        sheet.innerHTML = `
+          <div class="detail-cover-wrap">
+            ${cover
+              ? `<img src="${cover}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+              : '<div class="detail-cover-fallback">🎌</div>'}
+            <div class="detail-cover-grad"></div>
+            <button class="detail-close-btn" onclick="closeModal('ovl-detail')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+          </div>
+          <div class="detail-hero">
+            ${poster
+              ? `<img class="detail-poster" src="${poster}" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=detail-poster-fallback><i class=ri-sword-line style=font-size:28px;opacity:.4></i></div>'">`
+              : '<div class="detail-poster-fallback"><i class="ri-sword-line" style="font-size:28px;opacity:.4"></i></div>'}
+            <div class="detail-hero-info">
+              <div class="detail-title">${d.title_english || d.title}</div>
+              ${(d.title && d.title !== (d.title_english || d.title)) ? `<div class="detail-subtitle">${d.title}</div>` : ''}
+              ${d.title_japanese ? `<div class="detail-subtitle" style="font-size:11px;opacity:.55">${d.title_japanese}</div>` : ''}
+              <div class="detail-badges">
+                <span class="detail-type-badge">${d.type || 'Anime'}</span>
+                ${d.score ? `<span class="detail-score">⭐ ${d.score}</span>` : ''}
+                <span class="detail-dub-badge ${hasPtBrDub ? 'dub-yes' : 'dub-no'}">
+                  ${hasPtBrDub ? '🇧🇷 Dublado PT-BR' : 'Sem dub PT-BR'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-stats">
+            <div class="detail-stat"><div class="detail-stat-val">${d.episodes || '?'}</div><div class="detail-stat-lbl">Eps nesta entrada</div></div>
+            <div class="detail-stat"><div class="detail-stat-val">${fmtDuration(parseDuration(d.duration)) || '—'}</div><div class="detail-stat-lbl">Duração/ep</div></div>
+            <div class="detail-stat"><div class="detail-stat-val">${d.score || '—'}</div><div class="detail-stat-lbl">Nota MAL</div></div>
+          </div>
+          ${genres ? `<div class="detail-section">
+            <div class="detail-section-title">Gêneros</div>
+            <div class="detail-genres">${genres}</div>
+          </div>` : ''}
+          <div class="detail-section">
+            <div class="detail-section-title">Sinopse</div>
+            <div class="detail-synopsis" id="detail-syn">${synopsis}</div>
+            <button class="detail-toggle" onclick="toggleSynopsis()">Ver mais ▾</button>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">Informações</div>
+            <div class="detail-info-row">
+              <div><strong>Status:</strong> ${d.status || '—'}</div>
+              <div><strong>Exibição:</strong> ${d.aired?.string || '—'}</div>
+              <div><strong>Estúdio:</strong> ${studios}</div>
+              <div><strong>Duração:</strong> ${d.duration || '—'}</div>
+              <div><strong>Fonte:</strong> ${d.source || '—'}</div>
+              <div><strong>Horário:</strong> ${d.broadcast?.string || '—'}</div>
+            </div>
+          </div>
+          <div class="detail-footer">
+            ${streamLink ? (() => {
+              const fav2 = streamFavicon(streamLink.url, null);
+              return `<a class="btn-link" href="${streamLink.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--orange);border-color:var(--obrd);flex:1">
+                <img src="${fav2}" style="width:16px;height:16px;border-radius:3px;object-fit:contain" onerror="this.outerHTML='<i class=ri-play-circle-line></i>'"> ${streamLink.name}
+              </a>`;
+            })() : ''}
+            ${d.url ? `<a class="btn-link" href="${d.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:5px"><i class="ri-external-link-line"></i> MAL</a>` : ''}
+            <button class="btn-add-wl${alreadyAdded ? ' already' : ''}" style="display:flex;align-items:center;justify-content:center;gap:6px"
+              onclick="${alreadyAdded ? "showToast('Já está na sua lista!')" : `openFlow(${malId},'jikan')`}">
+              ${alreadyAdded ? '<i class="ri-check-line"></i> Na sua lista' : '<i class="ri-add-line"></i> Adicionar à Watchlist'}
+            </button>
+          </div>`;
+
+        // Guardar dados para o fluxo (inclui link de streaming)
+        state._pendingApiData = {
+          src: 'jikan', malId,
+          title:    d.title_english || d.title,
+          titleAlt: d.title !== (d.title_english || d.title) ? d.title : null,
+          img:      poster,
+          genres:   (d.genres || []).map(g => translateGenre(g.name)),
+          synopsis:  d.synopsis || '',
+          type:      'anime',
+          tot:       d.episodes || 0,   // 0 = total desconhecido
+          sns:       0,
+          duration:  parseDuration(d.duration),
+          cr:         streamLink?.url  || '',
+          crName:     streamLink?.name || '',
+          crLogo:     '',
+          hasPtBrDub,
+        };
+
+        // Traduzir sinopse para PT-BR de forma assíncrona
+        if (d.synopsis && d.synopsis !== 'Sem sinopse disponível.') {
+          const synEl = document.getElementById('detail-syn');
+          if (synEl) {
+            synEl.dataset.translating = '1';
+            synEl.style.opacity = '.6';
+            translateText(d.synopsis).then(pt => {
+              if (synEl && synEl.dataset.translating) {
+                synEl.textContent = pt;
+                synEl.style.opacity = '';
+                delete synEl.dataset.translating;
+              }
+            });
+          }
+        }
+      } catch (e) {
+        sheet.innerHTML = `<div style="padding:40px;text-align:center;color:var(--t3)">Erro ao carregar detalhes.<br><button onclick="closeModal('ovl-detail')" style="color:var(--green);background:none;border:none;margin-top:14px;font-size:14px">Fechar</button></div>`;
+      }
+    }
+
+    function toggleSynopsis() {
+      const el = document.getElementById('detail-syn');
+      const btn = el?.nextElementSibling;
+      if (!el) return;
+      el.classList.toggle('expanded');
+      if (btn) btn.textContent = el.classList.contains('expanded') ? 'Ver menos ▴' : 'Ver mais ▾';
+    }
+
+    // ════════════════════════════════════════════════════════
+    // TMDB API
+    // ════════════════════════════════════════════════════════
+    function tmdbHeaders() {
+      return { Authorization: `Bearer ${state.tmdbKey}` };
+    }
+
+    async function searchTmdb(query) {
+      const data = await fetchWithRetry(
+        `${TMDB}/search/multi?query=${encodeURIComponent(query)}&language=pt-BR&include_adult=false`,
+        { headers: tmdbHeaders() }
+      );
+      return (data.results || []).filter(r => r.media_type !== 'person');
+    }
+
+    function tmdbResultHTML(item) {
+      const poster = item.poster_path ? `${TMDB_IMG}/w92${item.poster_path}` : '';
+      const title  = item.title || item.name;
+      const year   = (item.release_date || item.first_air_date || '').slice(0, 4);
+      const type   = item.media_type === 'movie' ? 'Filme' : 'Série';
+      const score  = item.vote_average ? `⭐${item.vote_average.toFixed(1)}` : '';
+      const meta   = [type, year, score].filter(Boolean).join(' · ');
+
+      return `<div class="result-item" onclick="openDetailTmdb(${item.id},'${item.media_type}')">
+        ${poster
+          ? `<img class="result-poster" src="${poster}" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=result-poster-fallback>🎬</div>'">`
+          : '<div class="result-poster-fallback">🎬</div>'}
+        <div class="result-info">
+          <div class="result-title">${title}</div>
+          <div class="result-meta">${meta}</div>
+        </div>
+      </div>`;
+    }
+
+    async function openDetailTmdb(tmdbId, mediaType) {
+      closeModal('ovl-search');
+      openModal('ovl-detail');
+      const sheet = document.getElementById('detail-sheet');
+      sheet.innerHTML = '<div style="padding:40px;text-align:center"><div class="spinner" style="margin:auto"></div></div>';
+
+      try {
+        const endpoint = mediaType === 'movie' ? 'movie' : 'tv';
+        const hdrs = tmdbHeaders();
+        const [d, watchData] = await Promise.all([
+          fetchWithRetry(`${TMDB}/${endpoint}/${tmdbId}?language=pt-BR`, { headers: hdrs }),
+          fetchWithRetry(`${TMDB}/${endpoint}/${tmdbId}/watch/providers`, { headers: hdrs }).catch(() => null),
+        ]);
+
+        // Provedores de streaming no Brasil
+        const brWatch    = watchData?.results?.BR || {};
+        const provider   = brWatch.flatrate?.[0] || brWatch.rent?.[0] || brWatch.buy?.[0];
+        const watchLink  = brWatch.link || '';
+        const crLogoUrl  = provider?.logo_path ? `${TMDB_IMG}/w45${provider.logo_path}` : null;
+        const crNameStr  = provider?.provider_name || '';
+
+        const title    = d.title || d.name;
+        const original = d.original_title || d.original_name;
+        const poster   = d.poster_path   ? `${TMDB_IMG}/w500${d.poster_path}` : '';
+        const cover    = d.backdrop_path ? `${TMDB_IMG}/w780${d.backdrop_path}` : '';
+        const overview = d.overview || 'Sem sinopse disponível.';
+        const genres   = (d.genres || []).map(g => `<span class="detail-genre">${g.name}</span>`).join('');
+        const year     = (d.release_date || d.first_air_date || '').slice(0, 4);
+
+        // Episódios e temporadas — por temporada, não total geral
+        const isMovie  = mediaType === 'movie';
+        const seasonsMap = isMovie ? {} : buildSeasonsMap(d.seasons);
+        const regularSeasons = Object.keys(seasonsMap).map(Number);
+        const totalSeasons   = isMovie ? 1 : (d.number_of_seasons || regularSeasons.length || 1);
+        const latestSeason   = isMovie ? 1 : (regularSeasons.at(-1) || 1);
+        const epsLatestSeason = isMovie ? 1 : (seasonsMap[latestSeason] || d.number_of_episodes || 0);
+        const durationMin    = isMovie ? d.runtime : (d.episode_run_time?.[0] || null);
+        const alreadyAdded = state.items.some(i => i.tmdbId === tmdbId);
+        const tmdbUrl  = `https://www.themoviedb.org/${endpoint}/${tmdbId}`;
+
+        sheet.innerHTML = `
+          <div class="detail-cover-wrap">
+            ${cover
+              ? `<img src="${cover}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+              : '<div class="detail-cover-fallback"><i class="ri-movie-2-line" style="font-size:48px;opacity:.2"></i></div>'}
+            <div class="detail-cover-grad"></div>
+            <button class="detail-close-btn" onclick="closeModal('ovl-detail')" aria-label="Fechar"><i class="ri-close-line" style="font-size:18px"></i></button>
+          </div>
+          <div class="detail-hero">
+            ${poster
+              ? `<img class="detail-poster" src="${poster}" alt="" referrerpolicy="no-referrer">`
+              : '<div class="detail-poster-fallback">🎬</div>'}
+            <div class="detail-hero-info">
+              <div class="detail-title">${title}</div>
+              ${original && original !== title ? `<div class="detail-subtitle">${original}</div>` : ''}
+              <div class="detail-badges">
+                <span class="detail-type-badge">${mediaType === 'movie' ? 'Filme' : 'Série'}</span>
+                ${d.vote_average ? `<span class="detail-score">⭐ ${d.vote_average.toFixed(1)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="detail-stats">
+            <div class="detail-stat"><div class="detail-stat-val">${isMovie ? (durationMin ? fmtDuration(durationMin) : '—') : `${epsLatestSeason}`}</div><div class="detail-stat-lbl">${isMovie ? 'Duração' : `Eps (T${latestSeason})`}</div></div>
+            <div class="detail-stat"><div class="detail-stat-val">${isMovie ? year || '—' : totalSeasons}</div><div class="detail-stat-lbl">${isMovie ? 'Ano' : 'Temporadas'}</div></div>
+            <div class="detail-stat"><div class="detail-stat-val">${!isMovie && durationMin ? fmtDuration(durationMin) : (d.vote_average?.toFixed(1) || '—')}</div><div class="detail-stat-lbl">${!isMovie && durationMin ? 'Duração/ep' : 'Nota TMDB'}</div></div>
+          </div>
+          ${genres ? `<div class="detail-section">
+            <div class="detail-section-title">Gêneros</div>
+            <div class="detail-genres">${genres}</div>
+          </div>` : ''}
+          <div class="detail-section">
+            <div class="detail-section-title">Sinopse</div>
+            <div class="detail-synopsis" id="detail-syn">${overview}</div>
+            <button class="detail-toggle" onclick="toggleSynopsis()">Ver mais ▾</button>
+          </div>
+          <div class="detail-footer">
+            ${watchLink ? `<a class="btn-link" href="${watchLink}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--orange);border-color:var(--obrd);flex:1">
+              ${crLogoUrl ? `<img src="${crLogoUrl}" style="width:18px;height:18px;border-radius:4px;object-fit:contain">` : '<i class="ri-play-circle-line"></i>'}
+              ${crNameStr || 'Assistir'}
+            </a>` : ''}
+            <a class="btn-link" href="${tmdbUrl}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:5px"><i class="ri-external-link-line"></i> TMDB</a>
+            <button class="btn-add-wl${alreadyAdded ? ' already' : ''}" style="display:flex;align-items:center;justify-content:center;gap:6px"
+              onclick="${alreadyAdded ? "showToast('Já está na sua lista!')" : `openFlow(${tmdbId},'tmdb')`}">
+              ${alreadyAdded ? '<i class="ri-check-line"></i> Na sua lista' : '<i class="ri-add-line"></i> Adicionar à Watchlist'}
+            </button>
+          </div>`;
+
+        state._pendingApiData = {
+          src: 'tmdb', tmdbId,
+          title, img: poster,
+          genres:      (d.genres || []).map(g => g.name),
+          synopsis:    d.overview || '',
+          type:        isMovie ? 'filme' : 'serie',
+          tot:         epsLatestSeason,  // eps da temporada mais recente
+          sns:         totalSeasons,
+          ept:         epsLatestSeason,
+          duration:    durationMin,
+          seasonsMap,                    // {1: 13, 2: 10, 3: 8, ...}
+          cr:          watchLink || '',
+          crName:      crNameStr,
+          crLogo:      crLogoUrl || '',
+        };
+      } catch (e) {
+        sheet.innerHTML = `<div style="padding:40px;text-align:center;color:var(--t3)">Erro ao carregar detalhes.<br><button onclick="closeModal('ovl-detail')" style="color:var(--green);background:none;border:none;margin-top:14px;font-size:14px">Fechar</button></div>`;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // MODAL DE BUSCA — controles
+    // ════════════════════════════════════════════════════════
+    function selectSource(src) {
+      state._searchSrc = src;
+      document.getElementById('src-jikan').classList.toggle('active', src === 'jikan');
+      document.getElementById('src-tmdb').classList.toggle('active', src === 'tmdb');
+      const warn = document.getElementById('tmdb-warn');
+      warn.classList.toggle('visible', src === 'tmdb' && !state.tmdbKey);
+    }
+
+    async function doSearch() {
+      const q = document.getElementById('search-input').value.trim();
+      if (!q) return;
+      const results = document.getElementById('search-results');
+      results.innerHTML = `<div class="search-spinner"><div class="spinner"></div> Buscando...</div>`;
+
+      try {
+        if (state._searchSrc === 'jikan') {
+          const items = await searchJikan(q);
+          if (!items.length) { results.innerHTML = '<div class="search-spinner">Nenhum resultado encontrado.</div>'; return; }
+          results.innerHTML = items.map(jikanResultHTML).join('');
+        } else {
+          if (!state.tmdbKey) { results.innerHTML = '<div class="search-spinner">Configure o token do TMDB em ⚙.</div>'; return; }
+          const items = await searchTmdb(q);
+          if (!items.length) { results.innerHTML = '<div class="search-spinner">Nenhum resultado encontrado.</div>'; return; }
+          results.innerHTML = items.map(tmdbResultHTML).join('');
+        }
+      } catch (e) {
+        results.innerHTML = '<div class="search-spinner">Erro ao buscar. Tente novamente.</div>';
+      }
+    }
+
+    document.getElementById('search-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+
+    // Busca instantânea (debounce 500ms)
+    let _searchDebounce = null;
+    document.getElementById('search-input').addEventListener('input', () => {
+      clearTimeout(_searchDebounce);
+      const q = document.getElementById('search-input').value.trim();
+      if (!q || q.length < 2) return;
+      _searchDebounce = setTimeout(doSearch, 500);
+    });
+
+    // ════════════════════════════════════════════════════════
+    // FLUXO DE ADIÇÃO
+    // ════════════════════════════════════════════════════════
+    function openFlow(sourceId, src) {
+      closeModal('ovl-detail');
+      // Resetar estado do form
+      document.querySelectorAll('[name=flow-watching]').forEach(r => { r.checked = r.value === 'nao'; });
+      const dubAvail = state._pendingApiData?.hasPtBrDub;
+      // Se sabemos que não tem dub PT-BR, pré-selecionar legendado
+      const defaultAudio = (dubAvail === false) ? 'leg' : 'dub';
+      document.querySelectorAll('[name=flow-audio]').forEach(r => { r.checked = r.value === defaultAudio; });
+      document.getElementById('flow-sim').classList.remove('selected');
+      document.getElementById('flow-nao').classList.add('selected');
+      document.getElementById('flow-dub').classList.toggle('selected', defaultAudio === 'dub');
+      document.getElementById('flow-leg').classList.toggle('selected', defaultAudio === 'leg');
+      document.getElementById('flow-ep-section').style.display = 'none';
+      document.getElementById('flow-ep').value = '1';
+      document.getElementById('flow-season').value = '1';
+      document.getElementById('flow-ficar').classList.remove('active');
+      document.getElementById('flow-nova').classList.remove('active');
+      document.getElementById('flow-note').value = '';
+
+      const api   = state._pendingApiData;
+      const title = api?.title || '';
+      document.getElementById('flow-media-name').textContent = title;
+      document.getElementById('flow-title').textContent = 'Adicionar';
+
+      // Mostrar resumo de eps/temporadas se disponível
+      const subEl = document.querySelector('#ovl-flow .flow-sub');
+      if (subEl) {
+        const parts = [];
+        if (api?.sns > 1)         parts.push(`${api.sns} temporadas`);
+        if (api?.ept > 0)         parts.push(`${api.ept} eps/temporada`);
+        if (api?.duration)        parts.push(`${fmtDuration(api.duration)}/ep`);
+        subEl.textContent = parts.length ? parts.join(' · ') : 'Configure como você quer acompanhar';
+      }
+
+      openModal('ovl-flow');
+    }
+
+    // Hint dinâmico ao mudar temporada (TMDB)
+    document.getElementById('flow-season').addEventListener('input', () => {
+      const api = state._pendingApiData;
+      if (!api?.seasonsMap) return;
+      const s = parseInt(document.getElementById('flow-season').value);
+      const count = api.seasonsMap[s];
+      const hint = document.getElementById('flow-season-hint');
+      if (hint) hint.textContent = count ? `${count} eps nesta temporada` : '';
+    });
+
+    // Radio "assistindo agora?"
+    document.querySelectorAll('[name=flow-watching]').forEach(r => {
+      r.addEventListener('change', () => {
+        const watching = r.value === 'sim';
+        document.getElementById('flow-ep-section').style.display = watching ? 'block' : 'none';
+        document.getElementById('flow-sim').classList.toggle('selected', watching);
+        document.getElementById('flow-nao').classList.toggle('selected', !watching);
+      });
+    });
+
+    // Radio áudio
+    document.querySelectorAll('[name=flow-audio]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('flow-dub').classList.toggle('selected', r.value === 'dub');
+        document.getElementById('flow-leg').classList.toggle('selected', r.value === 'leg');
+      });
+    });
+
+    function toggleFlowTag(id) {
+      document.getElementById(id).classList.toggle('active');
+    }
+
+    async function confirmAdd() {
+      const api = state._pendingApiData;
+      if (!api) return;
+
+      const watching = document.querySelector('[name=flow-watching]:checked')?.value === 'sim';
+      const isDub    = document.querySelector('[name=flow-audio]:checked')?.value === 'dub';
+      const ep       = watching ? (parseInt(document.getElementById('flow-ep').value) || 1) : 0;
+      const season   = watching ? (parseInt(document.getElementById('flow-season').value) || 1) : 1;
+      const note     = document.getElementById('flow-note').value.trim();
+      const ficar    = document.getElementById('flow-ficar').classList.contains('active');
+      const nova     = document.getElementById('flow-nova').classList.contains('active');
+
+      const lists = [];
+      if (watching) { lists.push('meio'); }
+      else          { lists.push('nc'); }
+      if (ficar) lists.push('ficar');
+      if (nova)  lists.push('nova-tp');
+
+      const item = {
+        id:        uid(),
+        src:       api.src,
+        malId:     api.malId    || null,
+        tmdbId:    api.tmdbId   || null,
+        title:     api.title,
+        titleAlt:  api.titleAlt || null,
+        img:       api.img,
+        genres:    api.genres,
+        synopsis:  api.synopsis,
+        type:      api.type,
+        cr:        api.cr     || '',
+        crName:    api.crName || '',
+        crLogo:    api.crLogo || '',
+        dub:       isDub ? 1 : 0,
+        s:         season,
+        ep:        ep,
+        _ep:       ep,
+        // Para TMDB com seasonsMap: busca eps da temporada escolhida; fallback api.tot
+        tot:       api.seasonsMap?.[season] ?? api.tot,
+        sns:       api.sns  || 0,
+        ept:       api.ept  || api.tot || 0,
+        duration:  api.duration || null,
+        freq:      '',
+        st:        watching ? 'continuar' : 'comecar',
+        lists,
+        note,
+        badge:     null,
+        bl:        null,
+        _done:     false,
+        addedAt:   Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      await putItem(item);
+      closeModal('ovl-flow');
+      await renderAll();
+      showToast(`✓ ${api.title} adicionado!`);
+      state._pendingApiData = null;
+    }
+
+    // ════════════════════════════════════════════════════════
+    // MODAL MANUAL
+    // ════════════════════════════════════════════════════════
+    function previewManualImg() {
+      const url  = document.getElementById('man-img').value.trim();
+      const wrap = document.getElementById('man-preview');
+      const img  = document.getElementById('man-preview-img');
+      if (url) { img.src = url; wrap.classList.add('visible'); }
+      else     { wrap.classList.remove('visible'); }
+    }
+
+    // Radio manual áudio
+    document.querySelectorAll('[name=man-audio]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('man-dub-lbl').classList.toggle('selected', r.value === 'dub');
+        document.getElementById('man-leg-lbl').classList.toggle('selected', r.value === 'leg');
+      });
+    });
+
+    async function saveManual() {
+      const title = document.getElementById('man-title').value.trim();
+      if (!title) { showToast('⚠ Nome é obrigatório'); return; }
+
+      const isDub  = document.querySelector('[name=man-audio]:checked')?.value === 'dub';
+      const st     = document.getElementById('man-st').value;
+      const ep     = parseInt(document.getElementById('man-ep').value) || 0;
+      const tot    = parseInt(document.getElementById('man-tot').value) || 0;
+      const s      = parseInt(document.getElementById('man-s').value) || 1;
+
+      const lists = [];
+      if (['continuar','seguir'].includes(st)) lists.push('meio');
+      if (st === 'comecar') lists.push('nc');
+      if (st === 'terminado' || st === 'novamente') lists.push('term');
+
+      const item = {
+        id:        uid(),
+        src:       'manual',
+        malId:     null, tmdbId: null,
+        title,
+        img:       document.getElementById('man-img').value.trim(),
+        genres:    document.getElementById('man-genres').value.split(',').map(s => s.trim()).filter(Boolean),
+        synopsis:  document.getElementById('man-synopsis').value.trim(),
+        type:      'manual',
+        cr:        document.getElementById('man-cr').value.trim(),
+        dub:       isDub ? 1 : 0,
+        s, ep, _ep: ep, tot,
+        sns:       parseInt(document.getElementById('man-sns').value) || 0,
+        ept:       parseInt(document.getElementById('man-ept').value) || 0,
+        freq: '',
+        st, lists,
+        note:      document.getElementById('man-note').value.trim(),
+        badge: null, bl: null, _done: false,
+        addedAt: Date.now(), updatedAt: Date.now(),
+      };
+
+      await putItem(item);
+      closeModal('ovl-manual');
+      await renderAll();
+      showToast(`✓ ${title} adicionado!`);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // CONFIGURAÇÕES
+    // ════════════════════════════════════════════════════════
+    async function openSettings() {
+      document.getElementById('cfg-tmdb').value = state.tmdbKey || '';
+      document.getElementById('cfg-pin').value = '';
+      openModal('ovl-settings');
+    }
+
+    async function saveSettings() {
+      const key = document.getElementById('cfg-tmdb').value.trim();
+
+      document.getElementById('cfg-tmdb').style.borderColor = '';
+      state.tmdbKey = key;
+      await setConfig('tmdbKey', key);
+
+      // Salvar PIN (senha de acesso)
+      const pin = document.getElementById('cfg-pin').value;
+      if (pin !== '') {
+        await setConfig('appPin', pin);
+      } else {
+        // campo vazio = mantém o que está (não apaga senha existente)
+        // Para apagar, usuário precisa clicar num botão dedicado (ou podemos apagar se vazio)
+        // Por ora, se vazio = não altera
+      }
+
+      closeModal('ovl-settings');
+      showToast('✓ Configurações salvas');
+    }
+
+    // ════════════════════════════════════════════════════════
+    // BULK INJECT
+    // ════════════════════════════════════════════════════════
+    function buildItemFromJikan(d, extras) {
+      const { ep = 0, s = 1, dub = 1, st = 'comecar', lists = ['nc'], note = '', badge = null, bl = null, cr = '', crName = '', crLogo = '' } = extras;
+      const pep = ep > 0 ? ep : 0;
+      // Prioridade: inglês → romaji → japonês
+      const title = d.title_english || d.title || d.title_japanese || '?';
+      const titleAlt = (d.title_japanese && title !== d.title_japanese) ? d.title_japanese : (d.title !== title ? d.title : null);
+      return {
+        id:        uid(),
+        src:       'jikan',
+        malId:     d.mal_id,
+        tmdbId:    null,
+        title,
+        titleAlt,  // título alternativo (japonês/romaji)
+        img:       d.images?.webp?.large_image_url || d.images?.jpg?.large_image_url || d.images?.jpg?.image_url || '',
+        genres:    (d.genres || []).map(g => translateGenre(g.name)),
+        synopsis:  d.synopsis || '',
+        type:      'anime',
+        cr,
+        crName,
+        crLogo,
+        dub,
+        s,
+        ep:        pep,
+        _ep:       pep,
+        tot:       d.episodes || 0,          // 0 = total desconhecido (anime em exibição)
+        sns:       0,                         // MAL não informa nº de temporadas por entrada
+        ept:       d.episodes || 0,
+        duration:  parseDuration(d.duration), // minutos por episódio
+        freq:      d.broadcast?.string || '',
+        st,
+        lists,
+        note:      note || '',
+        badge:     badge || null,
+        bl:        bl || null,
+        _done:     false,
+        addedAt:   Date.now(),
+        updatedAt: Date.now(),
+      };
+    }
+
+    let _injectRunning = false;
+
+    async function runInject() {
+      if (_injectRunning) return;
+      const confirmed = await showConfirm(
+        'Buscar os 31 animes automaticamente via MyAnimeList? Isso requer internet e pode levar ~30 segundos.',
+        { okText: 'Buscar agora', cancelText: 'Cancelar', icon: '📥' }
+      );
+      if (!confirmed) return;
+      _injectRunning = true;
+
+      const total = INJECT_LIST.length + INJECT_BY_NAME.length;
+      let ok = 0, skip = 0, fail = 0, done = 0;
+
+      // Abrir modal de progresso
+      openModal('ovl-inject');
+      const barEl  = document.getElementById('inject-progress-bar');
+      const txtEl  = document.getElementById('inject-progress-text');
+      const pctEl  = document.getElementById('inject-progress-pct');
+      const nameEl = document.getElementById('inject-item-name');
+      const logEl  = document.getElementById('inject-log');
+
+      function updateProgress(name, status) {
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        barEl.style.width  = pct + '%';
+        pctEl.textContent  = pct + '%';
+        txtEl.textContent  = `${done} / ${total}`;
+        nameEl.textContent = name || '';
+        if (status) {
+          const color = status === 'ok' ? 'var(--green)' : status === 'skip' ? 'var(--t3)' : 'var(--red)';
+          const icon  = status === 'ok' ? '✓' : status === 'skip' ? '—' : '✕';
+          logEl.innerHTML += `<div style="color:${color}">${icon} ${name}</div>`;
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+      }
+
+      // Por MAL ID
+      for (const [malId, ep, s, dub, st, lists, note, badge, bl] of INJECT_LIST) {
+        let itemName = `MAL #${malId}`;
+        try {
+          const existing = await db.getFromIndex('items', 'malId', malId);
+          if (existing && !existing._rm) {
+            itemName = existing.title;
+            skip++; done++; updateProgress(itemName, 'skip'); continue;
+          }
+          nameEl.textContent = `Buscando MAL #${malId}...`;
+          const [data, streamData] = await Promise.all([
+            fetchWithRetry(`${JIKAN}/anime/${malId}`),
+            fetchWithRetry(`${JIKAN}/anime/${malId}/streaming`).catch(() => ({ data: [] })),
+          ]);
+          const d = data.data;
+          itemName = d.title_english || d.title;
+          // Extrair CR link
+          const streams  = streamData.data || [];
+          const crStream = streams.find(s2 => /crunchyroll/i.test(s2.name)) || streams[0];
+          const crUrl    = crStream?.url    || '';
+          const crName2  = crStream?.name   || '';
+          const builtItem = buildItemFromJikan(d, { ep, s, dub, st, lists, note, badge, bl, cr: crUrl, crName: crName2 });
+          await putItem(builtItem);
+          ok++;
+          done++;
+          updateProgress(itemName, 'ok');
+        } catch {
+          fail++;
+          done++;
+          updateProgress(itemName, 'fail');
+        }
+        await delay(400);
+      }
+
+      // Por nome
+      for (const ex of INJECT_BY_NAME) {
+        let itemName = ex.title;
+        try {
+          nameEl.textContent = `Buscando "${ex.q}"...`;
+          const [data, streamData2] = await Promise.all([
+            fetchWithRetry(`${JIKAN}/anime?q=${encodeURIComponent(ex.q)}&limit=1&sfw=true`),
+            Promise.resolve({ data: [] }),
+          ]);
+          const item = data.data?.[0];
+          if (!item) throw new Error('Not found');
+          itemName = item.title_english || item.title;
+          const existing = await db.getFromIndex('items', 'malId', item.mal_id);
+          if (existing && !existing._rm) {
+            skip++; done++; updateProgress(itemName, 'skip'); continue;
+          }
+          // Buscar streaming para o ID encontrado
+          const streamRes = await fetchWithRetry(`${JIKAN}/anime/${item.mal_id}/streaming`).catch(() => ({ data: [] }));
+          const streams2   = streamRes.data || [];
+          const crStream2  = streams2.find(s2 => /crunchyroll/i.test(s2.name)) || streams2[0];
+          const crUrl2     = crStream2?.url  || '';
+          const crName3    = crStream2?.name || '';
+          const builtItem2 = buildItemFromJikan(item, { ...ex, cr: crUrl2, crName: crName3 });
+          await putItem(builtItem2);
+          ok++;
+          done++;
+          updateProgress(itemName, 'ok');
+        } catch {
+          fail++;
+          done++;
+          updateProgress(itemName, 'fail');
+        }
+        await delay(500);
+      }
+
+      // Concluído
+      nameEl.textContent = `Concluído! ${ok} importados · ${skip} já existiam · ${fail} falhas`;
+      barEl.style.width = '100%';
+      pctEl.textContent = '100%';
+
+      _injectRunning = false;
+      await renderAll();
+      await delay(1800);
+      closeModal('ovl-inject');
+      showToast(`✓ ${ok} importados · ${skip} já existiam · ${fail} falhas`, 4000);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // EXPORT / IMPORT / SHARE
+    // ════════════════════════════════════════════════════════
+    async function exportWatchlist() {
+      const items = await getAllItems();
+      const json = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), items }, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `watchlist-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('✓ Watchlist exportada!');
+    }
+
+    async function importWatchlist(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const items = data.items || data; // suporta array direto ou { items: [] }
+        if (!Array.isArray(items)) throw new Error('Formato inválido');
+        let imported = 0;
+        for (const item of items) {
+          if (!item.id || !item.title) continue;
+          item._rm = false; // garantir que não vem deletado
+          await putItem(item);
+          imported++;
+        }
+        await renderAll();
+        closeModal('ovl-settings');
+        showToast(`✓ ${imported} itens importados!`);
+      } catch (e) {
+        showToast('⚠ Erro ao importar: arquivo inválido');
+      }
+      event.target.value = '';
+    }
+
+    async function copyShareLink() {
+      const items = await getAllItems();
+      // Campos essenciais para o link (sem synopsis para reduzir tamanho)
+      const compact = items.map(({ id, title, img, type, dub, ep, _ep, tot, s, sns, st, lists, note, badge, bl, malId, tmdbId, genres, cr }) =>
+        ({ id, title, img, type, dub, ep, _ep, tot, s, sns, st, lists, note, badge, bl, malId, tmdbId, genres, cr })
+      );
+      const json   = JSON.stringify(compact);
+      const b64    = btoa(unescape(encodeURIComponent(json)));
+      const url    = `${location.origin}${location.pathname}#share=${b64}`;
+
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('✓ Link copiado! Cole para seus amigos.', 3500);
+      } catch {
+        // fallback: mostrar o link num prompt
+        prompt('Copie o link abaixo:', url);
+      }
+    }
+
+    // Na inicialização: verificar se há dados de share na URL
+    async function checkShareLink() {
+      const hash = location.hash;
+      if (!hash.startsWith('#share=')) return;
+      try {
+        const b64   = hash.slice(7);
+        const json  = decodeURIComponent(escape(atob(b64)));
+        const items = JSON.parse(json);
+        if (!Array.isArray(items) || !items.length) return;
+
+        const ok = await showConfirm(
+          `Recebeu uma watchlist compartilhada com ${items.length} itens. Deseja importar?`,
+          { okText: 'Importar', icon: '🔗' }
+        );
+        if (!ok) { history.replaceState(null, '', location.pathname); return; }
+
+        let imported = 0;
+        for (const item of items) {
+          if (!item.id || !item.title) continue;
+          // Gerar novo ID para não colidir
+          item.id = uid();
+          item.addedAt   = item.addedAt   || Date.now();
+          item.updatedAt = Date.now();
+          await putItem(item);
+          imported++;
+        }
+        history.replaceState(null, '', location.pathname);
+        await renderAll();
+        showToast(`✓ ${imported} itens importados da watchlist compartilhada!`, 4000);
+      } catch {
+        history.replaceState(null, '', location.pathname);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // DASHBOARD
+    // ════════════════════════════════════════════════════════
+    function dashboardHTML(items) {
+      const total   = items.length;
+      const ongoing = items.filter(i => i.lists?.includes('meio')).length;
+      const done    = items.filter(i => i._done || i.st === 'terminado').length;
+      const dub     = items.filter(i => i.dub === 1).length;
+      const dubPct  = total > 0 ? Math.round(dub / total * 100) : 0;
+
+      // Próximos de acabar (max 3)
+      const prox = items
+        .filter(i => i.ep > 0 && i.tot > 0 && rem(i) > 0 && !i._done)
+        .sort((a, b) => rem(a) - rem(b))
+        .slice(0, 3);
+
+      // Top prioridades (max 3)
+      const prio = sortPrio(
+        items.filter(i => !i._done && i.st !== 'terminado' && !i.lists?.includes('term'))
+      ).slice(0, 3);
+
+      const hlItem = (item) => {
+        const r = rem(item);
+        const meta = item.ep > 0 && item.tot > 0
+          ? `Ep ${item._ep ?? item.ep}/${item.tot} · ${r} restante${r !== 1 ? 's' : ''}`
+          : (item.st === 'comecar' ? 'Não comecei' : item.st);
+        return `<div class="dash-hl-item" onclick="openLocalDetail('${item.id}')">
+          ${item.img
+            ? `<img src="${item.img}" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=dash-hl-thumb><i class=ri-film-line></i></div>'">`
+            : '<div class="dash-hl-thumb"><i class="ri-film-line"></i></div>'}
+          <div>
+            <div class="dash-hl-name">${item.title}</div>
+            <div class="dash-hl-meta">${meta}</div>
+          </div>
+        </div>`;
+      };
+
+      return `<div class="dashboard">
+        <div class="dash-stats">
+          <div class="dash-stat">
+            <div class="dash-stat-val">${total}</div>
+            <div class="dash-stat-lbl">Total</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-val green">${ongoing}</div>
+            <div class="dash-stat-lbl">Assistindo</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-val amber">${done}</div>
+            <div class="dash-stat-lbl">Finalizados</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-val blue">${dubPct}%</div>
+            <div class="dash-stat-lbl">Dublados</div>
+          </div>
+        </div>
+        ${(prox.length || prio.length) ? `
+        <div class="dash-highlights">
+          ${prox.length ? `
+          <div class="dash-hl">
+            <div class="dash-hl-title"><i class="ri-time-line"></i> Próximos de acabar</div>
+            ${prox.map(hlItem).join('')}
+          </div>` : ''}
+          ${prio.length ? `
+          <div class="dash-hl">
+            <div class="dash-hl-title"><i class="ri-fire-line"></i> Prioridades</div>
+            ${prio.map(hlItem).join('')}
+          </div>` : ''}
+        </div>` : ''}
+      </div>`;
+    }
+
+    // ════════════════════════════════════════════════════════
+    // LOCK SCREEN
+    // ════════════════════════════════════════════════════════
+    function toggleLockEye() {
+      const inp = document.getElementById('lock-input');
+      const ico = document.getElementById('lock-eye-icon');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        ico.className = 'ri-eye-off-line';
+      } else {
+        inp.type = 'password';
+        ico.className = 'ri-eye-line';
+      }
+    }
+
+    async function checkAuth() {
+      const pin = await getConfig('appPin');
+      if (!pin) return; // sem senha configurada → direto
+      const lockEl = document.getElementById('lock-screen');
+      lockEl.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    async function doLogin() {
+      const pin   = await getConfig('appPin');
+      const input = document.getElementById('lock-input').value;
+      if (input === pin) {
+        const lockEl = document.getElementById('lock-screen');
+        lockEl.style.display = 'none';
+        document.body.style.overflow = '';
+        document.getElementById('lock-input').value = '';
+        document.getElementById('lock-error').textContent = '';
+      } else {
+        const inp = document.getElementById('lock-input');
+        document.getElementById('lock-error').textContent = 'Senha incorreta';
+        inp.classList.add('error');
+        setTimeout(() => inp.classList.remove('error'), 400);
+      }
+    }
+
+    document.getElementById('lock-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    // ════════════════════════════════════════════════════════
+    // BOTÕES DO HEADER
+    // ════════════════════════════════════════════════════════
+    document.getElementById('btn-add').addEventListener('click', () => {
+      document.getElementById('search-results').innerHTML = '';
+      document.getElementById('search-input').value = '';
+      selectSource('jikan');
+      openModal('ovl-search');
+    });
+
+    document.getElementById('btn-settings').addEventListener('click', openSettings);
+
+    // ════════════════════════════════════════════════════════
+    // PWA — SERVICE WORKER
+    // ════════════════════════════════════════════════════════
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE = 'watchlist-v1';
+        const ASSETS = ['/'];
+        self.addEventListener('install', e => {
+          e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+          self.skipWaiting();
+        });
+        self.addEventListener('activate', e => {
+          e.waitUntil(clients.claim());
+        });
+        self.addEventListener('fetch', e => {
+          const url = new URL(e.request.url);
+          if (url.hostname.includes('jikan') || url.hostname.includes('themoviedb') || url.hostname.includes('fonts')) return;
+          e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+        });
+      `;
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+
+    // ════════════════════════════════════════════════════════
+    // INIT
+    // ════════════════════════════════════════════════════════
+    async function init() {
+      await initDB();
+      state.tmdbKey = await getConfig('tmdbKey') || '';
+      await checkAuth();
+      await checkShareLink();
+      await renderAll();
+    }
+
+    init().catch(console.error);
+  </script>
+
+</body>
+</html>
